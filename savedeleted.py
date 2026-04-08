@@ -10,7 +10,7 @@ __version__ = (1, 1, 4)
 # meta developer: @Mr4epTuk
 # meta name: SaveDeleted
 # scope: hikka_only
-# requires: aiosqlite aiogram
+# requires: aiosqlite
 
 import os
 import re
