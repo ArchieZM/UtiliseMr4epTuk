@@ -11,6 +11,7 @@ __version__ = (1, 2, 0)
 # meta name: SaveDeleted
 # scope: hikka_only
 # requires: aiosqlite
+# meta banner: https://raw.githubusercontent.com/ArchieZM/UtiliseMr4epTuk/main/SaveDeleted.png
 
 import os
 import re
