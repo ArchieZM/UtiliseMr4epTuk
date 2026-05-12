@@ -43,11 +43,11 @@ _TEXT_KEYS = ("text", "caption")
 
 @loader.tds
 class ExteraEmojiMod(loader.Module):
-    """Allows users without Telegram Premium to see premium emojis as clickable tg://emoji links.
+    """Converts outgoing premium emojis to clickable tg://emoji links — made for ExteraGram users without Telegram Premium.
 
     Replaces ALL outgoing premium emojis with tg://emoji?id=... links
-    BEFORE they leave the client, so any recipient can tap the emoji
-    and see the sticker preview — no Premium required.
+    BEFORE they leave the client. ExteraGram users can tap the emoji
+    and see the sticker preview even without a Premium subscription.
 
     Works in:
     • Regular messages (MTProto TL-layer interception)
@@ -55,11 +55,6 @@ class ExteraEmojiMod(loader.Module):
     • Media captions (photos, videos, documents)
     • Inline bot messages & forms (aiogram Bot-layer interception)
     • Albums / media groups
-
-    ⚠️ Cases where you may want to DISABLE:
-    • All chat members already have Telegram Premium
-    • Sending many messages per second (extra processing)
-    • Clients that don't support tg:// deep links
 
     Commands:
     .exteraemoji — toggle replacement on/off"""
@@ -72,9 +67,9 @@ class ExteraEmojiMod(loader.Module):
         "cfg_template_doc": "URL template ({doc_id} = emoji document ID). Default: tg://emoji?id={doc_id}",
         "cfg_ignored": "Ignored chats",
         "cfg_ignored_doc": "Chat IDs (comma-separated) where replacement is skipped",
-        "_cls_doc": "Allows users without Telegram Premium to see premium emojis as clickable tg://emoji links.\n\nReplaces ALL outgoing premium emojis with tg://emoji?id=... links BEFORE they leave the client, so any recipient can tap the emoji and see the sticker preview — no Premium required.\n\nWorks in: regular messages, edits, media captions, inline bot messages, albums.\n\nCases where you may want to DISABLE:\n• All chat members already have Telegram Premium\n• Sending many messages per second (extra processing)\n• Clients that don't support tg:// deep links\n\nCommands:\n.exteraemoji — toggle replacement on/off",
-        "toggled_on": "✅ <b>ExteraEmoji is now ON</b>\n\nPremium emojis will be converted to clickable links.",
-        "toggled_off": "❌ <b>ExteraEmoji is now OFF</b>\n\nPremium emojis will be sent as-is (only visible to Premium users).",
+        "_cls_doc": "Converts outgoing premium emojis to clickable tg://emoji links — made for ExteraGram users without Telegram Premium.\n\nReplaces ALL outgoing premium emojis with tg://emoji?id=... links BEFORE they leave the client. ExteraGram users can tap the emoji and see the sticker preview even without a Premium subscription.\n\nWorks in: regular messages, edits, media captions, inline bot messages, albums.\n\nCommands:\n.exteraemoji — toggle replacement on/off",
+        "toggled_on": "✅ <b>ExteraEmoji is now ON</b>\n\nPremium emojis will be converted to clickable links for ExteraGram users.",
+        "toggled_off": "❌ <b>ExteraEmoji is now OFF</b>\n\nPremium emojis will be sent as-is (visible only to Premium users).",
     }
 
     strings_ru = {
@@ -85,9 +80,9 @@ class ExteraEmojiMod(loader.Module):
         "cfg_template_doc": "Шаблон URL ({doc_id} = ID документа эмодзи). По умолчанию: tg://emoji?id={doc_id}",
         "cfg_ignored": "Игнорируемые чаты",
         "cfg_ignored_doc": "ID чатов (через запятую), где замена не производится",
-        "_cls_doc": "Позволяет пользователям без Telegram Premium видеть премиум-эмодзи как кликабельные ссылки tg://emoji.\n\nЗаменяет ВСЕ исходящие премиум-эмодзи на tg://emoji?id=... ссылки ДО отправки, так что любой получатель может нажать на эмодзи и увидеть превью стикера — Premium не требуется.\n\nРаботает в: обычных сообщениях, редактировании, подписях к медиа, инлайн-сообщениях бота, альбомах.\n\nСлучаи когда лучше ОТКЛЮЧИТЬ:\n• Все участники чатов уже имеют Telegram Premium\n• Отправка большого количества сообщений в секунду\n• Клиенты не поддерживающие tg:// deep-ссылки\n\nКоманды:\n.exteraemoji — вкл/выкл замену",
-        "toggled_on": "✅ <b>ExteraEmoji ВКЛЮЧЕН</b>\n\nПремиум-эмодзи будут заменены на кликабельные ссылки.",
-        "toggled_off": "❌ <b>ExteraEmoji ВЫКЛЮЧЕН</b>\n\nПремиум-эмодзи будут отправлены как есть (видны только Premium-пользователям).",
+        "_cls_doc": "Конвертирует исходящие премиум-эмодзи в кликабельные ссылки tg://emoji — создан для пользователей ExteraGram без Telegram Premium.\n\nЗаменяет ВСЕ исходящие премиум-эмодзи на tg://emoji?id=... ссылки ДО отправки. Пользователи ExteraGram смогут нажать на эмодзи и увидеть превью стикера, даже без Premium-подписки.\n\nРаботает в: обычных сообщениях, редактировании, подписях к медиа, инлайн-сообщениях бота, альбомах.\n\nКоманды:\n.exteraemoji — вкл/выкл замену",
+        "toggled_on": "✅ <b>ExteraEmoji ВКЛЮЧЕН</b>\n\nПремиум-эмодзи будут заменены на кликабельные ссылки для пользователей ExteraGram.",
+        "toggled_off": "❌ <b>ExteraEmoji ВЫКЛЮЧЕН</b>\n\nПремиум-эмодзи отправлены как есть (видны только Premium-пользователям).",
     }
 
     def __init__(self):
