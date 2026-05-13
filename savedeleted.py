@@ -449,6 +449,8 @@ class SaveDeletedMod(loader.Module):
         self._db = db
         self._tg_id = (await client.get_me()).id
 
+        logging.getLogger("aiosqlite").setLevel(logging.WARNING)
+
         os.makedirs(self.media_dir, exist_ok=True)
 
         self._db_lock = asyncio.Lock()
@@ -1446,14 +1448,24 @@ class SaveDeletedMod(loader.Module):
     async def _resolve_entity(self, message: Message):
         args = utils.get_args_raw(message)
         if args:
+            entity = None
             try:
                 entity = await self._client.get_entity(args)
+            except Exception:
+                pass
+            if not entity:
+                try:
+                    n = int(args)
+                    if n > 0:
+                        entity = await self._client.get_entity(-1000000000000 - n)
+                except Exception:
+                    pass
+            if entity:
                 eid = getattr(entity, 'id', 0)
                 if eid < 0:
                     eid = int(self._bare_id(eid))
                 return eid, getattr(entity, 'title', getattr(entity, 'first_name', str(args)))
-            except Exception:
-                return None, None
+            return None, None
         return utils.get_chat_id(message), "Current chat"
 
     @loader.watcher(no_commands=True)
