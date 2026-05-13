@@ -1458,6 +1458,8 @@ class SaveDeletedMod(loader.Module):
                     n = int(args)
                     if n > 0:
                         entity = await self._client.get_entity(-1000000000000 - n)
+                    elif n < -1000000000000:
+                        entity = await self._client.get_entity(int(self._bare_id(n)))
                 except Exception:
                     pass
             if entity:
