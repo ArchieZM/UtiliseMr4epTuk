@@ -226,11 +226,26 @@ class SaveDeletedMod(loader.Module):
         self._conn = None
         self._deletion_buffers = {}
 
-        await self._init_db()
-        await self._ensure_defaults()
-        await self._ensure_storage_chat()
+        try:
+            await self._init_db()
+        except Exception as e:
+            logger.warning("Primary DB init failed (%s), trying fallback path", e)
+            self._sqlite_path = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)) or "/tmp",
+                "save_deleted.sqlite",
+            )
+            try:
+                await self._init_db()
+            except Exception as e2:
+                logger.exception("DB init completely failed: %s", e2)
+                self._conn = None
 
-        logger.info("SaveDeleted core initialized")
+        if self._conn:
+            await self._ensure_defaults()
+            await self._ensure_storage_chat()
+            logger.info("SaveDeleted core initialized")
+        else:
+            logger.warning("SaveDeleted running without DB — no persistence")
 
     async def on_unload(self):
         for buf in list(self._deletion_buffers.values()):
@@ -245,6 +260,7 @@ class SaveDeletedMod(loader.Module):
     # --- Database ---
 
     async def _init_db(self):
+        logger.debug("Opening SQLite at %s", self._sqlite_path)
         self._conn = await aiosqlite.connect(self._sqlite_path)
         self._conn.row_factory = aiosqlite.Row
         await self._conn.execute("PRAGMA journal_mode=WAL")
@@ -285,6 +301,8 @@ class SaveDeletedMod(loader.Module):
             logger.exception("Failed to create storage chat: %s", e)
 
     async def _get_setting(self, key: str, default: str = "") -> str:
+        if not self._conn:
+            return default
         try:
             async with self._conn.execute(
                 "SELECT value FROM settings WHERE key = ?", (key,)
@@ -296,6 +314,8 @@ class SaveDeletedMod(loader.Module):
             return default
 
     async def _set_setting(self, key: str, value: str, insert_only: bool = False):
+        if not self._conn:
+            return
         try:
             if insert_only:
                 await self._conn.execute(
@@ -312,6 +332,8 @@ class SaveDeletedMod(loader.Module):
             logger.error("_set_setting(%s) error: %s", key, e)
 
     async def _db_fetchone(self, query: str, params: tuple = ()):
+        if not self._conn:
+            return None
         try:
             async with self._conn.execute(query, params) as cursor:
                 return await cursor.fetchone()
@@ -320,6 +342,8 @@ class SaveDeletedMod(loader.Module):
             return None
 
     async def _db_fetchall(self, query: str, params: tuple = ()):
+        if not self._conn:
+            return []
         try:
             async with self._conn.execute(query, params) as cursor:
                 return await cursor.fetchall()
@@ -328,6 +352,8 @@ class SaveDeletedMod(loader.Module):
             return []
 
     async def _db_execute(self, query: str, params: tuple = ()):
+        if not self._conn:
+            return
         try:
             await self._conn.execute(query, params)
             await self._conn.commit()
@@ -341,37 +367,22 @@ class SaveDeletedMod(loader.Module):
         if not sid:
             return 0
         try:
-            forwarded = await self._client.forward_messages(
-                int(sid), message.id, message.chat_id
-            )
-            if hasattr(forwarded, "__iter__"):
-                fwd = list(forwarded)[0]
-            else:
-                fwd = forwarded
-            return fwd.id if hasattr(fwd, "id") else 0
+            path = await message.download_media()
+            if not path:
+                return 0
+            try:
+                sent = await self._client.send_file(
+                    int(sid), path, caption=message.text or ""
+                )
+                return sent.id if hasattr(sent, "id") else 0
+            finally:
+                try:
+                    os.unlink(path)
+                except Exception:
+                    pass
         except Exception as e:
             logger.error("_upload_media error: %s", e)
-            try:
-                if message.photo:
-                    sent = await self._client.send_file(
-                        int(sid), message.photo, caption=message.text or ""
-                    )
-                elif message.video:
-                    sent = await self._client.send_file(int(sid), message.video)
-                elif message.audio:
-                    sent = await self._client.send_file(int(sid), message.audio)
-                elif message.voice:
-                    sent = await self._client.send_file(int(sid), message.voice)
-                elif message.sticker:
-                    sent = await self._client.send_file(int(sid), message.sticker)
-                elif message.document:
-                    sent = await self._client.send_file(int(sid), message.document)
-                else:
-                    return 0
-                return sent.id if hasattr(sent, "id") else 0
-            except Exception as e2:
-                logger.error("_upload_media fallback error: %s", e2)
-                return 0
+            return 0
 
     # --- Tracking logic ---
 
