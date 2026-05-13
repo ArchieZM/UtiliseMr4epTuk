@@ -1074,7 +1074,11 @@ class SaveDeletedMod(loader.Module):
             if media_type == "contact" and media_path:
                 c = self._deserialize_contact(str(media_path))
                 if c["p"] and c["f"]:
-                    sent_msg = await bot.send_contact(self._tg_id, phone_number=c["p"], first_name=c["f"], last_name=c["l"] if c["l"] else None, vcard=c["v"] if c["v"] else None)
+                    media = types.InputMediaContact(phone_number=c["p"], first_name=c["f"], last_name=c["l"], vcard=c["v"])
+                    try:
+                        sent_msg = await self._client.send_message("me", file=media)
+                    except Exception:
+                        sent_msg = None
             elif media_type == "geo" and media_path:
                 p = str(media_path).split("|")
                 if len(p) >= 2:
@@ -1127,7 +1131,7 @@ class SaveDeletedMod(loader.Module):
                 except ImportError:
                     kwargs["disable_web_page_preview"] = True
                 sent_msg = await bot.send_message(**kwargs)
-                reply_id = getattr(sent_msg, "message_id", None)
+            reply_id = getattr(sent_msg, "message_id", None) or getattr(sent_msg, "id", None)
 
         except Exception as e:
             logger.warning("Bot send failed: %s", e)
