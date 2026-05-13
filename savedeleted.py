@@ -469,15 +469,39 @@ class SaveDeletedMod(loader.Module):
 
     # --- Entity resolution ---
 
-    async def _resolve_entity(self, arg: str):
-        arg = arg.strip()
-        if not arg:
+    async def _resolve_entity(self, arg: str, message: Message = None):
+        arg = arg.strip() if arg else ""
+        if not arg and message:
+            reply = await message.get_reply_message()
+            if reply:
+                return await self._client.get_entity(reply.sender_id)
+            return await self._client.get_entity(message.chat_id)
+
+        try:
+            entity_id = int(arg)
+            if entity_id < 0:
+                entity_id = int(str(entity_id).replace("-100", ""))
+            return await self._client.get_entity(entity_id)
+        except ValueError:
+            pass
+        except Exception:
             return None
+
         try:
             return await self._client.get_entity(arg)
         except Exception:
-            pass
-        return None
+            return None
+
+    @staticmethod
+    def _get_display_name(entity) -> str:
+        if hasattr(entity, 'first_name'):
+            name = entity.first_name or ''
+            if getattr(entity, 'last_name', None):
+                name += ' ' + entity.last_name
+            return name.strip()
+        if hasattr(entity, 'title'):
+            return entity.title or ''
+        return str(getattr(entity, 'id', 'Unknown'))
 
     @staticmethod
     def _get_entity_type(entity) -> str:
@@ -500,18 +524,42 @@ class SaveDeletedMod(loader.Module):
 
         try:
             entity = await self._client.get_entity(entity_id)
-            title = utils.get_display_name(entity)
+            title = self._get_display_name(entity)
             etype = self._get_entity_type(entity)
             return {"title": title, "type": etype}
         except Exception:
             return {"title": str(entity_id), "type": "user"}
 
     async def _format_entity_link(self, entity_id: int) -> str:
+        row = await self._db_fetchone(
+            "SELECT type FROM chats WHERE chat_id = ?", (entity_id,)
+        )
+        if row and row["type"] in ("channel", "supergroup"):
+            try:
+                entity = await self._client.get_entity(entity_id)
+                if hasattr(entity, "username") and entity.username:
+                    return f"https://t.me/{entity.username}"
+            except Exception:
+                pass
+        return f"tg://user?id={entity_id}"
+
+    async def _cache_entity(self, entity_id: int):
+        existing = await self._db_fetchone(
+            "SELECT chat_id FROM chats WHERE chat_id = ?", (entity_id,)
+        )
+        if existing:
+            return
         try:
             entity = await self._client.get_entity(entity_id)
-            return utils.get_entity_url(entity) or f"tg://user?id={entity_id}"
+            title = self._get_display_name(entity)
+            etype = self._get_entity_type(entity)
+            await self._conn.execute(
+                "INSERT OR IGNORE INTO chats (chat_id, title, type) VALUES (?, ?, ?)",
+                (entity_id, title, etype),
+            )
+            await self._conn.commit()
         except Exception:
-            return f"tg://user?id={entity_id}"
+            pass
 
     # --- Message storage ---
 
@@ -523,6 +571,12 @@ class SaveDeletedMod(loader.Module):
         media_type = _get_media_type(message)
         text = message.text or ""
 
+        if getattr(message, "sender_id", None):
+            await self._cache_entity(message.sender_id)
+
+        if getattr(message, "chat_id", None):
+            await self._cache_entity(message.chat_id)
+
         forward_info = None
         if getattr(message, "fwd_from", None):
             try:
@@ -530,7 +584,7 @@ class SaveDeletedMod(loader.Module):
                 fwd = message.fwd_from
                 if getattr(fwd, "from_id", None):
                     fwd_entity = await self._client.get_entity(fwd.from_id)
-                    fi["name"] = utils.get_display_name(fwd_entity)
+                    fi["name"] = self._get_display_name(fwd_entity)
                     fi["id"] = fwd.from_id.user_id if hasattr(fwd.from_id, "user_id") else str(fwd.from_id)
                 forward_info = json.dumps(fi, ensure_ascii=False)
             except Exception:
@@ -867,6 +921,7 @@ class SaveDeletedMod(loader.Module):
         text_content = row["text"] or ""
         media_type = row["media_type"] or "text"
         forward_info = row["forward_info"]
+        storage_msg_id = row["storage_msg_id"]
 
         if sender_id:
             sender_info = await self._get_entity_info(sender_id)
@@ -880,6 +935,20 @@ class SaveDeletedMod(loader.Module):
         chat_title = utils.escape_html(chat_info["title"])
         chat_url = await self._format_entity_link(chat_id)
         chat_type = chat_info["type"]
+
+        reply_to = None
+        if storage_msg_id and media_type != "text":
+            sid = await self._get_setting("storage_chat_id", "")
+            if sid:
+                try:
+                    stored = await self._client.get_messages(int(sid), ids=storage_msg_id)
+                    if stored and stored.media:
+                        sent = await self._client.send_file(
+                            self._me_id, stored.media, caption=stored.text or ""
+                        )
+                        reply_to = sent.id if hasattr(sent, "id") else None
+                except Exception as e:
+                    logger.error("Failed to re-send media: %s", e)
 
         if chat_type == "channel":
             header = self.strings("deleted_channel").format(
@@ -928,7 +997,7 @@ class SaveDeletedMod(loader.Module):
         if body_parts:
             text += "\n" + "\n".join(body_parts)
 
-        await self._send_notification(text)
+        await self._send_notification(text, reply_to=reply_to if reply_to else None)
 
     async def _send_ttl_notification(self, message: Message, media_type: str):
         sender_id = getattr(message, "sender_id", 0)
@@ -952,7 +1021,7 @@ class SaveDeletedMod(loader.Module):
 
     # --- Notification delivery ---
 
-    async def _send_notification(self, text: str):
+    async def _send_notification(self, text: str, reply_to: int = None):
         if not text:
             return
 
@@ -967,46 +1036,64 @@ class SaveDeletedMod(loader.Module):
             notify_via = await self._get_setting("notify_via", "builtin")
             sound = (await self._get_setting("notify_sound", "0")) == "1"
 
-            for chunk in chunks:
+            for i, chunk in enumerate(chunks):
+                reply = reply_to if i == 0 else None
                 if notify_via == "builtin":
-                    await self._send_via_builtin(chunk, sound)
+                    await self._send_via_builtin(chunk, sound, reply)
                 elif notify_via == "token":
-                    await self._send_via_token(chunk, sound)
+                    await self._send_via_token(chunk, sound, reply)
                 elif notify_via == "group":
-                    await self._send_via_storage(chunk)
+                    await self._send_via_storage(chunk, reply)
                 elif notify_via == "forum":
-                    await self._send_via_forum(chunk)
+                    await self._send_via_forum(chunk, reply)
                 else:
-                    await self._send_via_builtin(chunk, sound)
+                    await self._send_via_builtin(chunk, sound, reply)
         except Exception as e:
             logger.error("_send_notification: %s", e)
 
-    async def _send_via_builtin(self, text: str, sound: bool):
+    async def _send_via_builtin(self, text: str, sound: bool, reply_to: int = None):
         try:
-            await self.inline.bot.send_message(
-                chat_id=self._me_id,
-                text=text,
-                parse_mode="HTML",
-                disable_notification=not sound,
-            )
-        except Exception as e:
-            logger.error("_send_via_builtin: %s", e)
+            kwargs = {
+                "chat_id": self._me_id,
+                "text": text,
+                "parse_mode": "HTML",
+                "disable_notification": not sound,
+            }
+            if reply_to:
+                kwargs["reply_to_message_id"] = reply_to
+            await self.inline.bot.send_message(**kwargs)
+        except Exception:
+            try:
+                kwargs2 = {
+                    "entity": self._me_id,
+                    "message": text,
+                    "parse_mode": "html",
+                    "silent": not sound,
+                }
+                if reply_to:
+                    kwargs2["reply_to"] = reply_to
+                await self._client.send_message(**kwargs2)
+            except Exception as e:
+                logger.error("_send_via_builtin fallback: %s", e)
 
-    async def _send_via_token(self, text: str, sound: bool):
+    async def _send_via_token(self, text: str, sound: bool, reply_to: int = None):
         token = await self._get_setting("bot_token", "")
         if not token:
             return
         url = f"https://api.telegram.org/bot{token}/sendMessage"
+        payload = {
+            "chat_id": self._me_id,
+            "text": text,
+            "parse_mode": "HTML",
+            "disable_notification": not sound,
+        }
+        if reply_to:
+            payload["reply_to_message_id"] = reply_to
         async with aiohttp.ClientSession() as session:
             try:
                 async with session.post(
                     url,
-                    json={
-                        "chat_id": self._me_id,
-                        "text": text,
-                        "parse_mode": "HTML",
-                        "disable_notification": not sound,
-                    },
+                    json=payload,
                     timeout=aiohttp.ClientTimeout(total=10),
                 ) as resp:
                     data = await resp.json()
@@ -1015,18 +1102,19 @@ class SaveDeletedMod(loader.Module):
             except Exception as e:
                 logger.error("_send_via_token: %s", e)
 
-    async def _send_via_storage(self, text: str):
+    async def _send_via_storage(self, text: str, reply_to: int = None):
         sid = await self._get_setting("storage_chat_id", "")
         if not sid:
             return
         try:
-            await self._client.send_message(
-                int(sid), text, parse_mode="html"
-            )
+            kwargs = {"entity": int(sid), "message": text, "parse_mode": "html"}
+            if reply_to:
+                kwargs["reply_to"] = reply_to
+            await self._client.send_message(**kwargs)
         except Exception as e:
             logger.error("_send_via_storage: %s", e)
 
-    async def _send_via_forum(self, text: str):
+    async def _send_via_forum(self, text: str, reply_to: int = None):
         sid = await self._get_setting("storage_chat_id", "")
         if not sid:
             return
@@ -1035,6 +1123,8 @@ class SaveDeletedMod(loader.Module):
             kwargs = {"entity": int(sid), "message": text, "parse_mode": "html"}
             if topic_id:
                 kwargs["reply_to"] = int(topic_id)
+            elif reply_to:
+                kwargs["reply_to"] = reply_to
             await self._client.send_message(**kwargs)
         except Exception as e:
             logger.error("_send_via_forum: %s", e)
@@ -1052,13 +1142,13 @@ class SaveDeletedMod(loader.Module):
             await utils.answer(message, self.strings("no_args"))
             return
 
-        entity = await self._resolve_entity(args)
+        entity = await self._resolve_entity(args, message)
         if not entity:
             await utils.answer(message, self.strings("entity_not_found"))
             return
 
         entity_id = entity.id
-        title = utils.get_display_name(entity)
+        title = self._get_display_name(entity)
         etype = self._get_entity_type(entity)
 
         existing = await self._db_fetchone(
@@ -1096,13 +1186,13 @@ class SaveDeletedMod(loader.Module):
             await utils.answer(message, self.strings("no_args"))
             return
 
-        entity = await self._resolve_entity(args)
+        entity = await self._resolve_entity(args, message)
         if not entity:
             await utils.answer(message, self.strings("entity_not_found"))
             return
 
         entity_id = entity.id
-        title = utils.get_display_name(entity)
+        title = self._get_display_name(entity)
         etype = self._get_entity_type(entity)
 
         existing = await self._db_fetchone(
