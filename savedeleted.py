@@ -220,7 +220,7 @@ class SaveDeletedMod(loader.Module):
         "m_none": "Message",
         "m_service": "System message",
         "m_poll": "Poll",
-        "menu_title": "📋 <b>SaveDeleted</b>",
+        "menu_title": "<b>SaveDeleted</b>",
         "menu_messages": "Messages",
         "menu_chats": "Chats",
         "menu_db_size": "DB Size",
@@ -228,10 +228,10 @@ class SaveDeletedMod(loader.Module):
         "menu_storage": "StorageChat",
         "menu_whitelist": "Whitelist",
         "menu_blacklist": "Blacklist",
-        "btn_chats": "💬 Chats",
-        "btn_settings": "⚙️ Settings",
-        "btn_back": "◀️ Back",
-        "btn_close": "🚫 Close",
+        "btn_chats": "Chats",
+        "btn_settings": "Settings",
+        "btn_back": "Back",
+        "btn_close": "Close",
         "chats_tab_pm": "PM",
         "chats_tab_groups": "Groups",
         "chats_tab_channels": "Channels",
@@ -239,29 +239,29 @@ class SaveDeletedMod(loader.Module):
         "chats_no_wl": "The chat is not on the WhiteList.",
         "chat_messages": "Messages",
         "chat_media": "Media",
-        "btn_wl_on": "🟢 In Whitelist",
-        "btn_wl_off": "⚪ Not in Whitelist",
-        "btn_bl_on": "🔴 In Blacklist",
-        "btn_bl_off": "⚪ Not in Blacklist",
-        "btn_notif_on": "🟢 Notifications ON",
-        "btn_notif_off": "🔴 Notifications OFF",
-        "btn_notif_default": "⚪ Notifications (default)",
-        "btn_save_msg_on": "🟢 Save Messages",
-        "btn_save_msg_off": "🔴 Save Messages",
-        "btn_save_msg_default": "⚪ Save Messages (default)",
-        "btn_save_media_sub": "💾 Save Media ▶",
-        "btn_save_all_media_on": "🟢 Save all media",
-        "btn_save_all_media_off": "🔴 Save all media",
-        "btn_photo_on": "🟢 Photo",
-        "btn_photo_off": "🔴 Photo",
-        "btn_video_on": "🟢 Video",
-        "btn_video_off": "🔴 Video",
-        "btn_files_on": "🟢 Files",
-        "btn_files_off": "🔴 Files",
-        "btn_delete_db": "🗑 Delete DB",
-        "delete_db_confirm": "❓ Delete all data for this chat?",
-        "btn_yes": "✅ Yes, delete",
-        "btn_no": "❌ No",
+        "btn_wl_on": "WL: ON",
+        "btn_wl_off": "WL: OFF",
+        "btn_bl_on": "BL: ON",
+        "btn_bl_off": "BL: OFF",
+        "btn_notif_on": "Notif: ON",
+        "btn_notif_off": "Notif: OFF",
+        "btn_notif_default": "Notif: default",
+        "btn_save_msg_on": "SaveMsg: ON",
+        "btn_save_msg_off": "SaveMsg: OFF",
+        "btn_save_msg_default": "SaveMsg: default",
+        "btn_save_media_sub": "Save Media >",
+        "btn_save_all_media_on": "All media: ON",
+        "btn_save_all_media_off": "All media: OFF",
+        "btn_photo_on": "Photo: ON",
+        "btn_photo_off": "Photo: OFF",
+        "btn_video_on": "Video: ON",
+        "btn_video_off": "Video: OFF",
+        "btn_files_on": "Files: ON",
+        "btn_files_off": "Files: OFF",
+        "btn_delete_db": "Delete DB",
+        "delete_db_confirm": "Delete all data for this chat?",
+        "btn_yes": "Yes, delete",
+        "btn_no": "No",
     }
 
     strings_ru = {
@@ -441,7 +441,7 @@ class SaveDeletedMod(loader.Module):
         "m_none": "Сообщение",
         "m_service": "Системное сообщение",
         "m_poll": "Опрос",
-        "menu_title": "📋 <b>SaveDeleted</b>",
+        "menu_title": "<b>SaveDeleted</b>",
         "menu_messages": "Сообщений",
         "menu_chats": "Чатов",
         "menu_db_size": "Размер БД",
@@ -449,10 +449,10 @@ class SaveDeletedMod(loader.Module):
         "menu_storage": "StorageChat",
         "menu_whitelist": "Белый список",
         "menu_blacklist": "Чёрный список",
-        "btn_chats": "💬 Чаты",
-        "btn_settings": "⚙️ Настройки",
-        "btn_back": "◀️ Назад",
-        "btn_close": "🚫 Закрыть",
+        "btn_chats": "Чаты",
+        "btn_settings": "Настройки",
+        "btn_back": "Назад",
+        "btn_close": "Закрыть",
         "chats_tab_pm": "ЛС",
         "chats_tab_groups": "Группы",
         "chats_tab_channels": "Каналы",
@@ -460,29 +460,29 @@ class SaveDeletedMod(loader.Module):
         "chats_no_wl": "Чат не в Белом списке.",
         "chat_messages": "Сообщений",
         "chat_media": "Медиа",
-        "btn_wl_on": "🟢 В Белом списке",
-        "btn_wl_off": "⚪ Не в Белом списке",
-        "btn_bl_on": "🔴 В Чёрном списке",
-        "btn_bl_off": "⚪ Не в Чёрном списке",
-        "btn_notif_on": "🟢 Уведомления ВКЛ",
-        "btn_notif_off": "🔴 Уведомления ВЫКЛ",
-        "btn_notif_default": "⚪ Уведомления (по умолч.)",
-        "btn_save_msg_on": "🟢 Сохранять сообщения",
-        "btn_save_msg_off": "🔴 Сохранять сообщения",
-        "btn_save_msg_default": "⚪ Сохранять (по умолч.)",
-        "btn_save_media_sub": "💾 Сохранение медиа ▶",
-        "btn_save_all_media_on": "🟢 Сохранять все медиа",
-        "btn_save_all_media_off": "🔴 Сохранять все медиа",
-        "btn_photo_on": "🟢 Фото",
-        "btn_photo_off": "🔴 Фото",
-        "btn_video_on": "🟢 Видео",
-        "btn_video_off": "🔴 Видео",
-        "btn_files_on": "🟢 Файлы",
-        "btn_files_off": "🔴 Файлы",
-        "btn_delete_db": "🗑 Удалить БД",
-        "delete_db_confirm": "❓ Удалить все данные этого чата?",
-        "btn_yes": "✅ Да, удалить",
-        "btn_no": "❌ Нет",
+        "btn_wl_on": "WL: ВКЛ",
+        "btn_wl_off": "WL: ВЫКЛ",
+        "btn_bl_on": "BL: ВКЛ",
+        "btn_bl_off": "BL: ВЫКЛ",
+        "btn_notif_on": "Увед: ВКЛ",
+        "btn_notif_off": "Увед: ВЫКЛ",
+        "btn_notif_default": "Увед: умолч",
+        "btn_save_msg_on": "Сохр: ВКЛ",
+        "btn_save_msg_off": "Сохр: ВЫКЛ",
+        "btn_save_msg_default": "Сохр: умолч",
+        "btn_save_media_sub": "Медиа >",
+        "btn_save_all_media_on": "Всё медиа: ВКЛ",
+        "btn_save_all_media_off": "Всё медиа: ВЫКЛ",
+        "btn_photo_on": "Фото: ВКЛ",
+        "btn_photo_off": "Фото: ВЫКЛ",
+        "btn_video_on": "Видео: ВКЛ",
+        "btn_video_off": "Видео: ВЫКЛ",
+        "btn_files_on": "Файлы: ВКЛ",
+        "btn_files_off": "Файлы: ВЫКЛ",
+        "btn_delete_db": "Удалить БД",
+        "delete_db_confirm": "Удалить все данные этого чата?",
+        "btn_yes": "Да, удалить",
+        "btn_no": "Нет",
     }
 
     def __init__(self):
@@ -2150,7 +2150,10 @@ class SaveDeletedMod(loader.Module):
 
         tabs_row = []
         for t, key in [("pm", "chats_tab_pm"), ("groups", "chats_tab_groups"), ("channels", "chats_tab_channels"), ("bots", "chats_tab_bots")]:
-            tabs_row.append({"text": self.strings(key), "callback": self._inline__chats_menu, "args": (0, t), "style": "success" if tab == t else None} if tab != t else {"text": f"✔️ {self.strings(key)}", "callback": self._inline__chats_menu, "args": (0, t), "style": "success"})
+            if tab == t:
+                tabs_row.append({"text": f"> {self.strings(key)}", "callback": self._inline__chats_menu, "args": (0, t), "style": "success"})
+            else:
+                tabs_row.append({"text": self.strings(key), "callback": self._inline__chats_menu, "args": (0, t)})
 
         markup = [tabs_row] + rows
         if total_pages > 1:
@@ -2225,15 +2228,19 @@ class SaveDeletedMod(loader.Module):
         else:
             note = ""
 
-        return f"⚙️ <b>{name}</b>\n\n<b>{self.strings('chat_messages')}:</b> <code>{msg_count}</code>\n<b>{self.strings('chat_media')}:</b> <code>{media_count}</code>{note}"
+        return f"<b>{name}</b>\n\n<b>{self.strings('chat_messages')}:</b> <code>{msg_count}</code>\n<b>{self.strings('chat_media')}:</b> <code>{media_count}</code>{note}"
 
     async def _build_chat_markup(self, chat_id):
         cfg = self._chat_config.get(str(chat_id), {})
         in_wl = chat_id in self.whitelist
         in_bl = chat_id in self.blacklist
 
-        wl_btn = {"text": self.strings("btn_wl_on"), "callback": self._inline__toggle_wl, "args": (chat_id,), "style": "success" if in_wl else None}
-        bl_btn = {"text": (self.strings("btn_bl_on") if in_bl else self.strings("btn_bl_off")), "callback": self._inline__toggle_bl, "args": (chat_id,), "style": "danger" if in_bl else None}
+        wl_btn = {"text": self.strings("btn_wl_on") if in_wl else self.strings("btn_wl_off"), "callback": self._inline__toggle_wl, "args": (chat_id,)}
+        if in_wl:
+            wl_btn["style"] = "success"
+        bl_btn = {"text": self.strings("btn_bl_on") if in_bl else self.strings("btn_bl_off"), "callback": self._inline__toggle_bl, "args": (chat_id,)}
+        if in_bl:
+            bl_btn["style"] = "danger"
 
         notif_val = cfg.get("notifications")
         if notif_val is True:
@@ -2241,8 +2248,11 @@ class SaveDeletedMod(loader.Module):
         elif notif_val is False:
             notif_text, notif_style = self.strings("btn_notif_off"), "danger"
         else:
-            notif_text, notif_style = self.strings("btn_notif_default"), None
-        notif_btn = {"text": notif_text, "callback": self._inline__toggle_notif, "args": (chat_id,), "style": notif_style}
+            notif_text = self.strings("btn_notif_default")
+            notif_style = None
+        notif_btn = {"text": notif_text, "callback": self._inline__toggle_notif, "args": (chat_id,)}
+        if notif_style:
+            notif_btn["style"] = notif_style
 
         sm_val = cfg.get("save_messages")
         if sm_val is True:
@@ -2250,8 +2260,11 @@ class SaveDeletedMod(loader.Module):
         elif sm_val is False:
             sm_text, sm_style = self.strings("btn_save_msg_off"), "danger"
         else:
-            sm_text, sm_style = self.strings("btn_save_msg_default"), None
-        sm_btn = {"text": sm_text, "callback": self._inline__toggle_save_msg, "args": (chat_id,), "style": sm_style}
+            sm_text = self.strings("btn_save_msg_default")
+            sm_style = None
+        sm_btn = {"text": sm_text, "callback": self._inline__toggle_save_msg, "args": (chat_id,)}
+        if sm_style:
+            sm_btn["style"] = sm_style
 
         all_on = cfg.get("save_photo", True) and cfg.get("save_video", True) and cfg.get("save_files", True)
         any_on = cfg.get("save_photo", True) or cfg.get("save_video", True) or cfg.get("save_files", True)
