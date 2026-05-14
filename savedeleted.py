@@ -1076,7 +1076,7 @@ class SaveDeletedMod(loader.Module):
                 if c["p"] and c["f"]:
                     media = types.MessageMediaContact(phone_number=c["p"], first_name=c["f"], last_name=c["l"], vcard=c["v"], user_id=c["u"])
                     try:
-                        sent_msg = await self._client.send_message("me", file=media)
+                        sent_msg = await self._client.send_message(self.inline.bot_id, file=media)
                     except Exception:
                         sent_msg = None
             elif media_type == "geo" and media_path:
@@ -1149,7 +1149,7 @@ class SaveDeletedMod(loader.Module):
                 try:
                     file_ref = base64.b64decode(sm["file_ref"])
                     input_doc = InputDocument(id=sm["id"], access_hash=sm["access_hash"], file_reference=file_ref)
-                    sent_sticker = await self._client.send_file("me", file=input_doc)
+                    sent_sticker = await self._client.send_file(self.inline.bot_id, file=input_doc)
                 except Exception as e:
                     logger.error("Sticker InputDocument expired, trying file upload: %s", e)
 
@@ -1166,14 +1166,14 @@ class SaveDeletedMod(loader.Module):
                         kwargs["attributes"] = attrs
                     else:
                         kwargs["attributes"] = [DocumentAttributeSticker(alt="", stickerset=InputStickerSetEmpty())]
-                    sent_sticker = await self._client.send_file("me", **kwargs)
+                    sent_sticker = await self._client.send_file(self.inline.bot_id, **kwargs)
                 except Exception as e:
                     logger.error("Sticker file upload failed: %s", e)
 
             if sent_sticker:
                 for text in parts:
                     fb_text = text.replace("<tg-emoji emoji-id=", "<emoji document_id=").replace("</tg-emoji>", "</emoji>")
-                    await self._client.send_message("me", fb_text, parse_mode="html", link_preview=False, reply_to=sent_sticker.id)
+                    await self._client.send_message(self.inline.bot_id, fb_text, parse_mode="html", link_preview=False, reply_to=sent_sticker.id)
                 return
 
             logger.error("Sticker send completely failed, sending text-only")
@@ -1187,24 +1187,24 @@ class SaveDeletedMod(loader.Module):
                         if c["p"] and c["f"]:
                             try:
                                 media = types.MessageMediaContact(phone_number=c["p"], first_name=c["f"], last_name=c["l"], vcard=c["v"], user_id=c["u"])
-                                await self._client.send_message("me", file=media)
+                                await self._client.send_message(self.inline.bot_id, file=media)
                             except Exception:
                                 media = types.InputMediaContact(phone_number=c["p"], first_name=c["f"], last_name=c["l"], vcard=c["v"])
-                                await self._client.send_message("me", file=media)
-                            await self._client.send_message("me", fb_text, parse_mode="html", link_preview=False)
+                                await self._client.send_message(self.inline.bot_id, file=media)
+                            await self._client.send_message(self.inline.bot_id, fb_text, parse_mode="html", link_preview=False)
                             continue
                     elif media_type == "geo" and media_path:
                         p = str(media_path).split("|")
                         if len(p) >= 2:
-                            await self._client.send_message("me", file=types.InputMediaGeoPoint(geo_point=types.InputGeoPoint(lat=float(p[0]), long=float(p[1]), accuracy_radius=0)))
-                            await self._client.send_message("me", fb_text, parse_mode="html", link_preview=False)
+                            await self._client.send_message(self.inline.bot_id, file=types.InputMediaGeoPoint(geo_point=types.InputGeoPoint(lat=float(p[0]), long=float(p[1]), accuracy_radius=0)))
+                            await self._client.send_message(self.inline.bot_id, fb_text, parse_mode="html", link_preview=False)
                             continue
                     if media_path and os.path.exists(str(media_path)):
-                        await self._client.send_file("me", file=media_path, caption=fb_text, parse_mode="html")
+                        await self._client.send_file(self.inline.bot_id, file=media_path, caption=fb_text, parse_mode="html")
                     else:
-                        await self._client.send_message("me", fb_text, parse_mode="html", link_preview=False)
+                        await self._client.send_message(self.inline.bot_id, fb_text, parse_mode="html", link_preview=False)
                 else:
-                    await self._client.send_message("me", fb_text, parse_mode="html", link_preview=False)
+                    await self._client.send_message(self.inline.bot_id, fb_text, parse_mode="html", link_preview=False)
             except Exception as e:
                 logger.warning("Fallback send failed: %s", e)
 
