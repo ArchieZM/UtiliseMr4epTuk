@@ -1074,7 +1074,7 @@ class SaveDeletedMod(loader.Module):
             if media_type == "contact" and media_path:
                 c = self._deserialize_contact(str(media_path))
                 if c["p"] and c["f"]:
-                    media = types.InputMediaContact(phone_number=c["p"], first_name=c["f"], last_name=c["l"], vcard=c["v"])
+                    media = types.MessageMediaContact(phone_number=c["p"], first_name=c["f"], last_name=c["l"], vcard=c["v"], user_id=c["u"])
                     try:
                         sent_msg = await self._client.send_message("me", file=media)
                     except Exception:
@@ -1185,8 +1185,12 @@ class SaveDeletedMod(loader.Module):
                     if media_type == "contact" and media_path:
                         c = self._deserialize_contact(str(media_path))
                         if c["p"] and c["f"]:
-                            media = types.InputMediaContact(phone_number=c["p"], first_name=c["f"], last_name=c["l"], vcard=c["v"])
-                            await self._client.send_message("me", file=media)
+                            try:
+                                media = types.MessageMediaContact(phone_number=c["p"], first_name=c["f"], last_name=c["l"], vcard=c["v"], user_id=c["u"])
+                                await self._client.send_message("me", file=media)
+                            except Exception:
+                                media = types.InputMediaContact(phone_number=c["p"], first_name=c["f"], last_name=c["l"], vcard=c["v"])
+                                await self._client.send_message("me", file=media)
                             await self._client.send_message("me", fb_text, parse_mode="html", link_preview=False)
                             continue
                     elif media_type == "geo" and media_path:
