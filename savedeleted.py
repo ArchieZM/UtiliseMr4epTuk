@@ -530,6 +530,7 @@ class SaveDeletedMod(loader.Module):
         self._custom_bot = None
         self._custom_bot_token = ""
         self._chat_types = {}
+        self._chats_tab = "all"
 
     async def client_ready(self, client, db):
         self._client = client
@@ -2110,6 +2111,7 @@ class SaveDeletedMod(loader.Module):
         await call.answer("Use .cfg SaveDeleted", show_alert=True)
 
     async def _inline__chats_menu(self, call: InlineCall, page: int, tab: str):
+        self._chats_tab = tab
         chat_ids = list(self.cached_chats)
         if not chat_ids:
             await call.edit(
@@ -2158,7 +2160,7 @@ class SaveDeletedMod(loader.Module):
         markup = [tabs_row] + rows
         if total_pages > 1:
             pagination = self.inline.build_pagination(
-                callback=functools.partial(self._inline__chats_menu, tab=tab),
+                callback=self._inline__chats_page,
                 total_pages=total_pages,
                 current_page=page + 1,
             )
@@ -2166,6 +2168,9 @@ class SaveDeletedMod(loader.Module):
         markup.append([{"text": self.strings("btn_back"), "callback": self._inline__main_menu, "style": "danger"}])
 
         await call.edit(f"{self.strings('menu_title')}\n\n<b>{self.strings('menu_chats')}</b>", reply_markup=markup)
+
+    async def _inline__chats_page(self, call: InlineCall, page: int):
+        await self._inline__chats_menu(call, max(0, page - 1), self._chats_tab)
 
     async def _inline__main_menu(self, call: InlineCall):
         records = await self._db_exec("SELECT COUNT(*) FROM messages")
