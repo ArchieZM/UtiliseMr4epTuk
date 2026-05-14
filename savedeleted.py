@@ -2071,33 +2071,321 @@ class SaveDeletedMod(loader.Module):
                     chat_id = int(self._bare_id(chat_id))
                 if chat_id not in self.cached_chats:
                     self._run_in_background(self._auto_cache_chat(chat_id))
-                return await self._show_main_menu(message)
+                return await self._show_chat_menu(message, chat_id)
         await self._show_main_menu(message)
 
     async def _show_main_menu(self, message):
+        records = await self._db_exec("SELECT COUNT(*) FROM messages")
+        count = records[0][0] if records else 0
+        records = await self._db_exec("SELECT COUNT(DISTINCT chat_id) FROM messages")
+        chats = records[0][0] if records else 0
+        try:
+            db_size = os.path.getsize(self.db_path) / (1024 * 1024)
+        except Exception:
+            db_size = 0
+        media_size = 0
+        if os.path.exists(self.media_dir):
+            try:
+                media_size = sum(os.path.getsize(os.path.join(self.media_dir, f)) for f in os.listdir(self.media_dir) if os.path.isfile(os.path.join(self.media_dir, f))) / (1024 * 1024)
+            except Exception:
+                pass
+        sid = self.config["storage_chat_id"]
+        sinfo = f"StorageChat: <code>{sid}</code>" if sid else "Storage: local disk"
+        text = (
+            f"<b>SaveDeleted</b>\n\n"
+            f"Messages: <code>{count}</code>\n"
+            f"Chats: <code>{chats}</code>\n"
+            f"DB Size: <code>{db_size:.2f} MB</code>\n"
+            f"Media Cache: <code>{media_size:.2f} MB</code>\n"
+            f"{sinfo}\n"
+            f"Whitelist: <code>{len(self.whitelist)}</code>\n"
+            f"Blacklist: <code>{len(self.blacklist)}</code>"
+        )
         await self.inline.form(
-            text="<b>SaveDeleted</b>",
-            message=message,
+            text=text, message=message,
             reply_markup=[
                 [{"text": "Chats", "callback": self._inline__chats_menu, "args": (0, "all")}],
-                [{"text": "Close", "action": "close"}],
+                [{"text": "Settings", "callback": self._inline__settings_link}],
+                [{"text": "Close", "action": "close", "style": "danger"}],
             ],
         )
+
+    async def _inline__settings_link(self, call: InlineCall):
+        await call.answer("Use .cfg SaveDeleted", show_alert=True)
+
+    async def _inline__main_menu(self, call: InlineCall):
+        records = await self._db_exec("SELECT COUNT(*) FROM messages")
+        count = records[0][0] if records else 0
+        records = await self._db_exec("SELECT COUNT(DISTINCT chat_id) FROM messages")
+        chats = records[0][0] if records else 0
+        try:
+            db_size = os.path.getsize(self.db_path) / (1024 * 1024)
+        except Exception:
+            db_size = 0
+        media_size = 0
+        if os.path.exists(self.media_dir):
+            try:
+                media_size = sum(os.path.getsize(os.path.join(self.media_dir, f)) for f in os.listdir(self.media_dir) if os.path.isfile(os.path.join(self.media_dir, f))) / (1024 * 1024)
+            except Exception:
+                pass
+        sid = self.config["storage_chat_id"]
+        sinfo = f"StorageChat: <code>{sid}</code>" if sid else "Storage: local disk"
+        text = (
+            f"<b>SaveDeleted</b>\n\n"
+            f"Messages: <code>{count}</code>\n"
+            f"Chats: <code>{chats}</code>\n"
+            f"DB Size: <code>{db_size:.2f} MB</code>\n"
+            f"Media Cache: <code>{media_size:.2f} MB</code>\n"
+            f"{sinfo}\n"
+            f"Whitelist: <code>{len(self.whitelist)}</code>\n"
+            f"Blacklist: <code>{len(self.blacklist)}</code>"
+        )
+        await call.edit(text, reply_markup=[
+            [{"text": "Chats", "callback": self._inline__chats_menu, "args": (0, "all")}],
+            [{"text": "Settings", "callback": self._inline__settings_link}],
+            [{"text": "Close", "action": "close", "style": "danger"}],
+        ])
 
     async def _inline__chats_menu(self, call: InlineCall, page: int, tab: str):
         self._chats_tab = tab
-        await call.edit(
-            f"<b>SaveDeleted</b>\n\n<i>Chats list (page {page}, tab {tab})</i>",
-            reply_markup=[
+        chat_ids = list(self.cached_chats)
+        if not chat_ids:
+            await call.edit("<b>SaveDeleted</b>\n\n<i>No cached chats yet.</i>", reply_markup=[
                 [{"text": "Back", "callback": self._inline__main_menu}],
+            ])
+            return
+
+        filtered = []
+        for cid in chat_ids:
+            ctype = self._chat_types.get(cid, "")
+            if tab == "all" or tab == ctype:
+                if tab == "bots" or (tab != "bots" and tab == ctype):
+                    filtered.append((cid, ctype))
+                elif tab == "all":
+                    filtered.append((cid, ctype))
+
+        per_page = 5
+        total_pages = max(1, (len(filtered) + per_page - 1) // per_page)
+        page = max(0, min(page, total_pages - 1))
+        start = page * per_page
+        page_items = filtered[start:start + per_page]
+
+        rows = []
+        for cid, ctype in page_items:
+            records = await self._db_exec("SELECT COUNT(*) FROM messages WHERE chat_id = ?", (cid,))
+            mc = records[0][0] if records else 0
+            records = await self._db_exec("SELECT COUNT(*) FROM messages WHERE chat_id = ? AND media_type NOT IN ('none','service','contact','geo','poll')", (cid,))
+            medc = records[0][0] if records else 0
+            try:
+                ent = await self._client.get_entity(cid)
+                name = utils.escape_html(self._clean_name(getattr(ent, "title", getattr(ent, "first_name", str(cid))) or str(cid)))
+            except Exception:
+                name = str(cid)
+            rows.append([{"text": f"{name}  |  {mc}/{medc}", "callback": self._inline__chat_menu, "args": (cid,)}])
+
+        tabs_row = []
+        for t, key in [("pm", "PM"), ("group", "Groups"), ("channel", "Channels")]:
+            if tab == t:
+                tabs_row.append({"text": f"> {key}", "callback": self._inline__chats_menu, "args": (0, t), "style": "success"})
+            else:
+                tabs_row.append({"text": key, "callback": self._inline__chats_menu, "args": (0, t)})
+
+        markup = [tabs_row] + rows
+        if total_pages > 1:
+            markup.append(self.inline.build_pagination(
+                callback=self._inline__chats_page,
+                total_pages=total_pages,
+                current_page=page + 1,
+            ))
+        markup.append([{"text": "Back", "callback": self._inline__main_menu, "style": "danger"}])
+
+        await call.edit(f"<b>SaveDeleted</b>\n\n<b>Chats</b>", reply_markup=markup)
+
+    async def _inline__chats_page(self, call: InlineCall, page: int):
+        await self._inline__chats_menu(call, max(0, page - 1), self._chats_tab)
+
+    async def _show_chat_menu(self, message, chat_id):
+        await self.inline.form(
+            text=await self._build_chat_text(chat_id),
+            message=message,
+            reply_markup=await self._build_chat_markup(chat_id),
+        )
+
+    async def _inline__chat_menu(self, call: InlineCall, chat_id: int):
+        await call.edit(
+            text=await self._build_chat_text(chat_id),
+            reply_markup=await self._build_chat_markup(chat_id),
+        )
+
+    async def _build_chat_text(self, chat_id):
+        try:
+            ent = await self._client.get_entity(chat_id)
+            name = utils.escape_html(self._clean_name(getattr(ent, "title", getattr(ent, "first_name", str(chat_id))) or str(chat_id)))
+        except Exception:
+            name = str(chat_id)
+        records = await self._db_exec("SELECT COUNT(*) FROM messages WHERE chat_id = ?", (chat_id,))
+        mc = records[0][0] if records else 0
+        records = await self._db_exec("SELECT COUNT(*) FROM messages WHERE chat_id = ? AND media_type NOT IN ('none','service','contact','geo','poll')", (chat_id,))
+        medc = records[0][0] if records else 0
+        note = ""
+        if self.config["use_whitelist"] and chat_id not in self.whitelist:
+            note = "\n\n<i>Not in Whitelist</i>"
+        return f"<b>{name}</b>\n\nMessages: <code>{mc}</code>\nMedia: <code>{medc}</code>{note}"
+
+    async def _build_chat_markup(self, chat_id):
+        cfg = self._chat_config.get(str(chat_id), {})
+        in_wl = chat_id in self.whitelist
+        in_bl = chat_id in self.blacklist
+
+        wl_btn = {"text": "WL: ON" if in_wl else "WL: OFF", "callback": self._inline__toggle_wl, "args": (chat_id,)}
+        if in_wl:
+            wl_btn["style"] = "success"
+        bl_btn = {"text": "BL: ON" if in_bl else "BL: OFF", "callback": self._inline__toggle_bl, "args": (chat_id,)}
+        if in_bl:
+            bl_btn["style"] = "danger"
+
+        notif_val = cfg.get("notifications")
+        if notif_val is True:
+            notif_btn = {"text": "Notif: ON", "callback": self._inline__toggle_notif, "args": (chat_id,), "style": "success"}
+        elif notif_val is False:
+            notif_btn = {"text": "Notif: OFF", "callback": self._inline__toggle_notif, "args": (chat_id,), "style": "danger"}
+        else:
+            notif_btn = {"text": "Notif: default", "callback": self._inline__toggle_notif, "args": (chat_id,)}
+
+        sm_val = cfg.get("save_messages")
+        if sm_val is True:
+            sm_btn = {"text": "SaveMsg: ON", "callback": self._inline__toggle_save_msg, "args": (chat_id,), "style": "success"}
+        elif sm_val is False:
+            sm_btn = {"text": "SaveMsg: OFF", "callback": self._inline__toggle_save_msg, "args": (chat_id,), "style": "danger"}
+        else:
+            sm_btn = {"text": "SaveMsg: default", "callback": self._inline__toggle_save_msg, "args": (chat_id,)}
+
+        all_on = cfg.get("save_photo", True) and cfg.get("save_video", True) and cfg.get("save_files", True)
+        any_on = cfg.get("save_photo", True) or cfg.get("save_video", True) or cfg.get("save_files", True)
+        if not any_on:
+            mstyle = "danger"
+        elif all_on:
+            mstyle = "success"
+        else:
+            mstyle = "primary"
+        media_btn = {"text": "Save Media >", "callback": self._inline__chat_media_menu, "args": (chat_id,), "style": mstyle}
+
+        return [
+            [wl_btn, bl_btn],
+            [notif_btn],
+            [sm_btn],
+            [media_btn],
+            [{"text": "Delete DB", "callback": self._inline__delete_db_ask, "args": (chat_id,), "style": "danger"}],
+            [{"text": "Back", "callback": self._inline__chats_menu, "args": (0, "all"), "style": "danger"}],
+        ]
+
+    async def _inline__toggle_wl(self, call: InlineCall, chat_id: int):
+        if chat_id in self.whitelist:
+            self.whitelist.remove(chat_id)
+        else:
+            self.whitelist.append(chat_id)
+            if chat_id in self.blacklist:
+                self.blacklist.remove(chat_id)
+        await self._inline__chat_menu(call, chat_id)
+
+    async def _inline__toggle_bl(self, call: InlineCall, chat_id: int):
+        if chat_id in self.blacklist:
+            self.blacklist.remove(chat_id)
+        else:
+            self.blacklist.append(chat_id)
+            if chat_id in self.whitelist:
+                self.whitelist.remove(chat_id)
+        await self._inline__chat_menu(call, chat_id)
+
+    async def _inline__toggle_notif(self, call: InlineCall, chat_id: int):
+        cfg = dict(self._chat_config.get(str(chat_id), {}))
+        cur = cfg.get("notifications")
+        cfg["notifications"] = False if cur is True else (None if cur is False else True)
+        self._chat_config[str(chat_id)] = cfg
+        await self._inline__chat_menu(call, chat_id)
+
+    async def _inline__toggle_save_msg(self, call: InlineCall, chat_id: int):
+        cfg = dict(self._chat_config.get(str(chat_id), {}))
+        cur = cfg.get("save_messages")
+        cfg["save_messages"] = False if cur is True else (None if cur is False else True)
+        self._chat_config[str(chat_id)] = cfg
+        await self._inline__chat_menu(call, chat_id)
+
+    async def _inline__chat_media_menu(self, call: InlineCall, chat_id: int):
+        cfg = self._chat_config.get(str(chat_id), {})
+
+        all_on = cfg.get("save_photo", True) and cfg.get("save_video", True) and cfg.get("save_files", True)
+        all_btn = {"text": "All media: ON" if all_on else "All media: OFF", "callback": self._inline__toggle_all_media, "args": (chat_id,), "style": "success" if all_on else "danger"}
+
+        p_on = cfg.get("save_photo", True)
+        p_btn = {"text": "Photo: ON" if p_on else "Photo: OFF", "callback": self._inline__toggle_photo, "args": (chat_id,), "style": "success" if p_on else "danger"}
+
+        v_on = cfg.get("save_video", True)
+        v_btn = {"text": "Video: ON" if v_on else "Video: OFF", "callback": self._inline__toggle_video, "args": (chat_id,), "style": "success" if v_on else "danger"}
+
+        f_on = cfg.get("save_files", True)
+        f_btn = {"text": "Files: ON" if f_on else "Files: OFF", "callback": self._inline__toggle_files, "args": (chat_id,), "style": "success" if f_on else "danger"}
+
+        await call.edit(
+            await self._build_chat_text(chat_id),
+            reply_markup=[
+                [all_btn],
+                [p_btn, v_btn],
+                [f_btn],
+                [{"text": "Back", "callback": self._inline__chat_menu, "args": (chat_id,), "style": "danger"}],
             ],
         )
 
-    async def _inline__main_menu(self, call: InlineCall):
+    async def _inline__toggle_all_media(self, call: InlineCall, chat_id: int):
+        cfg = dict(self._chat_config.get(str(chat_id), {}))
+        all_on = cfg.get("save_photo", True) and cfg.get("save_video", True) and cfg.get("save_files", True)
+        val = not all_on
+        cfg["save_photo"] = val
+        cfg["save_video"] = val
+        cfg["save_files"] = val
+        self._chat_config[str(chat_id)] = cfg
+        await self._inline__chat_media_menu(call, chat_id)
+
+    async def _inline__toggle_photo(self, call: InlineCall, chat_id: int):
+        cfg = dict(self._chat_config.get(str(chat_id), {}))
+        cfg["save_photo"] = not cfg.get("save_photo", True)
+        self._chat_config[str(chat_id)] = cfg
+        await self._inline__chat_media_menu(call, chat_id)
+
+    async def _inline__toggle_video(self, call: InlineCall, chat_id: int):
+        cfg = dict(self._chat_config.get(str(chat_id), {}))
+        cfg["save_video"] = not cfg.get("save_video", True)
+        self._chat_config[str(chat_id)] = cfg
+        await self._inline__chat_media_menu(call, chat_id)
+
+    async def _inline__toggle_files(self, call: InlineCall, chat_id: int):
+        cfg = dict(self._chat_config.get(str(chat_id), {}))
+        cfg["save_files"] = not cfg.get("save_files", True)
+        self._chat_config[str(chat_id)] = cfg
+        await self._inline__chat_media_menu(call, chat_id)
+
+    async def _inline__delete_db_ask(self, call: InlineCall, chat_id: int):
+        try:
+            ent = await self._client.get_entity(chat_id)
+            name = utils.escape_html(self._clean_name(getattr(ent, "title", getattr(ent, "first_name", str(chat_id))) or str(chat_id)))
+        except Exception:
+            name = str(chat_id)
         await call.edit(
-            "<b>SaveDeleted</b>",
+            f"Delete all data for this chat?\n\n<b>{name}</b>",
             reply_markup=[
-                [{"text": "Chats", "callback": self._inline__chats_menu, "args": (0, "all")}],
-                [{"text": "Close", "action": "close"}],
+                [{"text": "Yes, delete", "callback": self._inline__delete_db_do, "args": (chat_id,), "style": "danger"}],
+                [{"text": "No", "callback": self._inline__chat_menu, "args": (chat_id,)}],
             ],
         )
+
+    async def _inline__delete_db_do(self, call: InlineCall, chat_id: int):
+        rows = await self._db_exec("SELECT media_path, media_type FROM messages WHERE chat_id = ?", (chat_id,))
+        for row in rows:
+            self._cleanup_media_file(row[0], row[1])
+        await self._db_run("DELETE FROM messages WHERE chat_id = ?", (chat_id,))
+        await self._db_run("DELETE FROM auto_cached WHERE chat_id = ?", (chat_id,))
+        self.cached_chats.discard(chat_id)
+        self._chat_types.pop(chat_id, None)
+        self._chat_config.pop(str(chat_id), None)
+        await call.answer("Deleted")
+        await self._inline__main_menu(call)
