@@ -22,6 +22,7 @@ import shutil
 import base64
 import asyncio
 import difflib
+import functools
 import logging
 import aiosqlite
 import hashlib
@@ -31,6 +32,7 @@ from telethon.utils import pack_bot_file_id
 from telethon.tl.types import Message, MessageEmpty, InputDocument, DocumentAttributeSticker, InputStickerSetID, InputStickerSetEmpty
 import telethon.tl.types as types
 from .. import loader, utils
+from ..inline.types import InlineCall
 
 logger = logging.getLogger(__name__)
 
@@ -218,6 +220,48 @@ class SaveDeletedMod(loader.Module):
         "m_none": "Message",
         "m_service": "System message",
         "m_poll": "Poll",
+        "menu_title": "📋 <b>SaveDeleted</b>",
+        "menu_messages": "Messages",
+        "menu_chats": "Chats",
+        "menu_db_size": "DB Size",
+        "menu_media_cache": "Media Cache",
+        "menu_storage": "StorageChat",
+        "menu_whitelist": "Whitelist",
+        "menu_blacklist": "Blacklist",
+        "btn_chats": "💬 Chats",
+        "btn_settings": "⚙️ Settings",
+        "btn_back": "◀️ Back",
+        "btn_close": "🚫 Close",
+        "chats_tab_pm": "PM",
+        "chats_tab_groups": "Groups",
+        "chats_tab_channels": "Channels",
+        "chats_tab_bots": "Bots",
+        "chats_no_wl": "The chat is not on the WhiteList.",
+        "chat_messages": "Messages",
+        "chat_media": "Media",
+        "btn_wl_on": "🟢 In Whitelist",
+        "btn_wl_off": "⚪ Not in Whitelist",
+        "btn_bl_on": "🔴 In Blacklist",
+        "btn_bl_off": "⚪ Not in Blacklist",
+        "btn_notif_on": "🟢 Notifications ON",
+        "btn_notif_off": "🔴 Notifications OFF",
+        "btn_notif_default": "⚪ Notifications (default)",
+        "btn_save_msg_on": "🟢 Save Messages",
+        "btn_save_msg_off": "🔴 Save Messages",
+        "btn_save_msg_default": "⚪ Save Messages (default)",
+        "btn_save_media_sub": "💾 Save Media ▶",
+        "btn_save_all_media_on": "🟢 Save all media",
+        "btn_save_all_media_off": "🔴 Save all media",
+        "btn_photo_on": "🟢 Photo",
+        "btn_photo_off": "🔴 Photo",
+        "btn_video_on": "🟢 Video",
+        "btn_video_off": "🔴 Video",
+        "btn_files_on": "🟢 Files",
+        "btn_files_off": "🔴 Files",
+        "btn_delete_db": "🗑 Delete DB",
+        "delete_db_confirm": "❓ Delete all data for this chat?",
+        "btn_yes": "✅ Yes, delete",
+        "btn_no": "❌ No",
     }
 
     strings_ru = {
@@ -397,6 +441,48 @@ class SaveDeletedMod(loader.Module):
         "m_none": "Сообщение",
         "m_service": "Системное сообщение",
         "m_poll": "Опрос",
+        "menu_title": "📋 <b>SaveDeleted</b>",
+        "menu_messages": "Сообщений",
+        "menu_chats": "Чатов",
+        "menu_db_size": "Размер БД",
+        "menu_media_cache": "Кеш медиа",
+        "menu_storage": "StorageChat",
+        "menu_whitelist": "Белый список",
+        "menu_blacklist": "Чёрный список",
+        "btn_chats": "💬 Чаты",
+        "btn_settings": "⚙️ Настройки",
+        "btn_back": "◀️ Назад",
+        "btn_close": "🚫 Закрыть",
+        "chats_tab_pm": "ЛС",
+        "chats_tab_groups": "Группы",
+        "chats_tab_channels": "Каналы",
+        "chats_tab_bots": "Боты",
+        "chats_no_wl": "Чат не в Белом списке.",
+        "chat_messages": "Сообщений",
+        "chat_media": "Медиа",
+        "btn_wl_on": "🟢 В Белом списке",
+        "btn_wl_off": "⚪ Не в Белом списке",
+        "btn_bl_on": "🔴 В Чёрном списке",
+        "btn_bl_off": "⚪ Не в Чёрном списке",
+        "btn_notif_on": "🟢 Уведомления ВКЛ",
+        "btn_notif_off": "🔴 Уведомления ВЫКЛ",
+        "btn_notif_default": "⚪ Уведомления (по умолч.)",
+        "btn_save_msg_on": "🟢 Сохранять сообщения",
+        "btn_save_msg_off": "🔴 Сохранять сообщения",
+        "btn_save_msg_default": "⚪ Сохранять (по умолч.)",
+        "btn_save_media_sub": "💾 Сохранение медиа ▶",
+        "btn_save_all_media_on": "🟢 Сохранять все медиа",
+        "btn_save_all_media_off": "🔴 Сохранять все медиа",
+        "btn_photo_on": "🟢 Фото",
+        "btn_photo_off": "🔴 Фото",
+        "btn_video_on": "🟢 Видео",
+        "btn_video_off": "🔴 Видео",
+        "btn_files_on": "🟢 Файлы",
+        "btn_files_off": "🔴 Файлы",
+        "btn_delete_db": "🗑 Удалить БД",
+        "delete_db_confirm": "❓ Удалить все данные этого чата?",
+        "btn_yes": "✅ Да, удалить",
+        "btn_no": "❌ Нет",
     }
 
     def __init__(self):
@@ -443,6 +529,7 @@ class SaveDeletedMod(loader.Module):
         self._bot_cache_time = {}
         self._custom_bot = None
         self._custom_bot_token = ""
+        self._chat_types = {}
 
     async def client_ready(self, client, db):
         self._client = client
@@ -492,9 +579,20 @@ class SaveDeletedMod(loader.Module):
         async for row in cursor:
             self.cached_chats.add(row[0])
 
+        cur = await self._db_conn.execute("PRAGMA table_info(auto_cached)")
+        ac_cols = [r[1] for r in await cur.fetchall()]
+        if "chat_type" not in ac_cols:
+            await self._db_conn.execute("ALTER TABLE auto_cached ADD COLUMN chat_type TEXT DEFAULT ''")
+            await self._db_conn.commit()
+
+        cur = await self._db_conn.execute("SELECT chat_id, chat_type FROM auto_cached WHERE chat_type != ''")
+        async for row in cur:
+            self._chat_types[row[0]] = row[1]
+
         self.whitelist = self.pointer("sd_whitelist", [])
         self.blacklist = self.pointer("sd_blacklist", [])
         self._sticker_meta = self.pointer("sd_stickers", {})
+        self._chat_config = self.pointer("sd_chat_config", {})
 
         self._run_in_background(self._cleanup_loop())
         self._run_in_background(self._backup_db_loop())
@@ -1351,6 +1449,23 @@ class SaveDeletedMod(loader.Module):
         try:
             await self._db_run("INSERT OR IGNORE INTO auto_cached (chat_id) VALUES (?)", (chat_id,))
 
+            try:
+                entity = await self._client.get_entity(chat_id)
+                if isinstance(entity, types.User):
+                    ctype = "user"
+                elif isinstance(entity, types.Chat):
+                    ctype = "group"
+                elif getattr(entity, "megagroup", False):
+                    ctype = "group"
+                elif getattr(entity, "broadcast", False):
+                    ctype = "channel"
+                else:
+                    ctype = "group"
+                self._chat_types[chat_id] = ctype
+                await self._db_run("UPDATE auto_cached SET chat_type = ? WHERE chat_id = ?", (ctype, chat_id))
+            except Exception:
+                pass
+
             limit = None if self.config["keep_full_history"] else 3000
             batch = []
             async for msg in self._client.iter_messages(chat_id, limit=limit):
@@ -1931,3 +2046,339 @@ class SaveDeletedMod(loader.Module):
             await utils.answer(message, text)
         except Exception as e:
             await utils.answer(message, f"<b>Error:</b> <code>{e}</code>")
+
+    @loader.command(ru_doc="[юз/ID/ссылка] — меню SaveDeleted", en_doc="[@/ID/link] — SaveDeleted menu")
+    async def sdcmd(self, message: Message):
+        """Open SaveDeleted control panel"""
+        args = utils.get_args_raw(message)
+        if args:
+            entity = None
+            try:
+                entity = await self._client.get_entity(args)
+            except Exception:
+                pass
+            if not entity:
+                try:
+                    n = int(args)
+                    if n > 0:
+                        entity = await self._client.get_entity(-1000000000000 - n)
+                except Exception:
+                    pass
+            if entity:
+                chat_id = getattr(entity, "id", 0)
+                if chat_id < 0:
+                    chat_id = int(self._bare_id(chat_id))
+                if chat_id not in self.cached_chats:
+                    self._run_in_background(self._auto_cache_chat(chat_id))
+                return await self._show_chat_menu(message, chat_id)
+        await self._show_main_menu(message)
+
+    async def _show_main_menu(self, message):
+        records = await self._db_exec("SELECT COUNT(*) FROM messages")
+        count = records[0][0] if records else 0
+        records = await self._db_exec("SELECT COUNT(DISTINCT chat_id) FROM messages")
+        chats = records[0][0] if records else 0
+        db_size = os.path.getsize(self.db_path) / (1024 * 1024) if os.path.exists(self.db_path) else 0
+        media_size = 0
+        if os.path.exists(self.media_dir):
+            media_size = sum(os.path.getsize(os.path.join(self.media_dir, f)) for f in os.listdir(self.media_dir) if os.path.isfile(os.path.join(self.media_dir, f))) / (1024 * 1024)
+        storage_id = self.config["storage_chat_id"]
+        storage_info = f"<b>{self.strings('menu_storage')}:</b> <code>{storage_id}</code>" if storage_id else f"<b>Storage:</b> <code>local disk</code>"
+
+        text = (
+            f"{self.strings('menu_title')}\n\n"
+            f"<b>{self.strings('menu_messages')}:</b> <code>{count}</code>\n"
+            f"<b>{self.strings('menu_chats')}:</b> <code>{chats}</code>\n"
+            f"<b>{self.strings('menu_db_size')}:</b> <code>{db_size:.2f} MB</code>\n"
+            f"<b>{self.strings('menu_media_cache')}:</b> <code>{media_size:.2f} MB</code>\n"
+            f"{storage_info}\n"
+            f"<b>{self.strings('menu_whitelist')}:</b> <code>{len(self.whitelist)}</code>\n"
+            f"<b>{self.strings('menu_blacklist')}:</b> <code>{len(self.blacklist)}</code>"
+        )
+
+        await self.inline.form(
+            text=text,
+            message=message,
+            reply_markup=[
+                [{"text": self.strings("btn_chats"), "callback": self._inline__chats_menu, "args": (0, "all")}],
+                [{"text": self.strings("btn_settings"), "callback": self._inline__settings_link}],
+                [{"text": self.strings("btn_close"), "action": "close", "style": "danger"}],
+            ],
+        )
+
+    async def _inline__settings_link(self, call: InlineCall):
+        await call.answer("Use .cfg SaveDeleted", show_alert=True)
+
+    async def _inline__chats_menu(self, call: InlineCall, page: int, tab: str):
+        chat_ids = list(self.cached_chats)
+        if not chat_ids:
+            await call.edit(
+                f"{self.strings('menu_title')}\n\n<i>No cached chats yet.</i>",
+                reply_markup=[[{"text": self.strings("btn_back"), "callback": self._inline__main_menu, "style": "primary"}]],
+            )
+            return
+
+        filtered = []
+        for cid in chat_ids:
+            ctype = self._chat_types.get(cid, "")
+            if tab == "all" or tab == ctype or (tab == "bots" and ctype == "user"):
+                e2 = await self._client.get_entity(cid)
+                if isinstance(e2, types.User) and getattr(e2, "bot", False):
+                    if tab == "bots":
+                        filtered.append((cid, ctype))
+                elif tab != "bots":
+                    filtered.append((cid, ctype))
+
+        per_page = 5
+        total_pages = max(1, (len(filtered) + per_page - 1) // per_page)
+        page = max(0, min(page, total_pages - 1))
+        start = page * per_page
+        page_items = filtered[start:start + per_page]
+
+        rows = []
+        for cid, ctype in page_items:
+            records = await self._db_exec("SELECT COUNT(*) FROM messages WHERE chat_id = ?", (cid,))
+            msg_count = records[0][0] if records else 0
+            records = await self._db_exec("SELECT COUNT(*) FROM messages WHERE chat_id = ? AND media_type NOT IN ('none','service','contact','geo','poll')", (cid,))
+            media_count = records[0][0] if records else 0
+            try:
+                ent = await self._client.get_entity(cid)
+                name = utils.escape_html(self._clean_name(getattr(ent, "title", getattr(ent, "first_name", str(cid))) or str(cid)))
+            except Exception:
+                name = str(cid)
+            rows.append([{"text": f"{name}  |  {msg_count}/{media_count}", "callback": self._inline__chat_menu, "args": (cid,)}])
+
+        tabs_row = []
+        for t, key in [("pm", "chats_tab_pm"), ("groups", "chats_tab_groups"), ("channels", "chats_tab_channels"), ("bots", "chats_tab_bots")]:
+            tabs_row.append({"text": self.strings(key), "callback": self._inline__chats_menu, "args": (0, t), "style": "success" if tab == t else None} if tab != t else {"text": f"✔️ {self.strings(key)}", "callback": self._inline__chats_menu, "args": (0, t), "style": "success"})
+
+        markup = [tabs_row] + rows
+        if total_pages > 1:
+            pagination = self.inline.build_pagination(
+                callback=functools.partial(self._inline__chats_menu, tab=tab),
+                total_pages=total_pages,
+                current_page=page + 1,
+            )
+            markup.append(pagination)
+        markup.append([{"text": self.strings("btn_back"), "callback": self._inline__main_menu, "style": "danger"}])
+
+        await call.edit(f"{self.strings('menu_title')}\n\n<b>{self.strings('menu_chats')}</b>", reply_markup=markup)
+
+    async def _inline__main_menu(self, call: InlineCall):
+        records = await self._db_exec("SELECT COUNT(*) FROM messages")
+        count = records[0][0] if records else 0
+        records = await self._db_exec("SELECT COUNT(DISTINCT chat_id) FROM messages")
+        chats = records[0][0] if records else 0
+        db_size = os.path.getsize(self.db_path) / (1024 * 1024) if os.path.exists(self.db_path) else 0
+        media_size = 0
+        if os.path.exists(self.media_dir):
+            media_size = sum(os.path.getsize(os.path.join(self.media_dir, f)) for f in os.listdir(self.media_dir) if os.path.isfile(os.path.join(self.media_dir, f))) / (1024 * 1024)
+        storage_id = self.config["storage_chat_id"]
+        storage_info = f"<b>{self.strings('menu_storage')}:</b> <code>{storage_id}</code>" if storage_id else f"<b>Storage:</b> <code>local disk</code>"
+
+        text = (
+            f"{self.strings('menu_title')}\n\n"
+            f"<b>{self.strings('menu_messages')}:</b> <code>{count}</code>\n"
+            f"<b>{self.strings('menu_chats')}:</b> <code>{chats}</code>\n"
+            f"<b>{self.strings('menu_db_size')}:</b> <code>{db_size:.2f} MB</code>\n"
+            f"<b>{self.strings('menu_media_cache')}:</b> <code>{media_size:.2f} MB</code>\n"
+            f"{storage_info}\n"
+            f"<b>{self.strings('menu_whitelist')}:</b> <code>{len(self.whitelist)}</code>\n"
+            f"<b>{self.strings('menu_blacklist')}:</b> <code>{len(self.blacklist)}</code>"
+        )
+
+        await call.edit(
+            text,
+            reply_markup=[
+                [{"text": self.strings("btn_chats"), "callback": self._inline__chats_menu, "args": (0, "all")}],
+                [{"text": self.strings("btn_settings"), "callback": self._inline__settings_link}],
+                [{"text": self.strings("btn_close"), "action": "close", "style": "danger"}],
+            ],
+        )
+
+    async def _show_chat_menu(self, message, chat_id):
+        await self.inline.form(
+            text=await self._build_chat_text(chat_id),
+            message=message,
+            reply_markup=await self._build_chat_markup(chat_id),
+        )
+
+    async def _inline__chat_menu(self, call: InlineCall, chat_id: int):
+        await call.edit(
+            text=await self._build_chat_text(chat_id),
+            reply_markup=await self._build_chat_markup(chat_id),
+        )
+
+    async def _build_chat_text(self, chat_id):
+        try:
+            ent = await self._client.get_entity(chat_id)
+            name = utils.escape_html(self._clean_name(getattr(ent, "title", getattr(ent, "first_name", str(chat_id))) or str(chat_id)))
+        except Exception:
+            name = str(chat_id)
+        records = await self._db_exec("SELECT COUNT(*) FROM messages WHERE chat_id = ?", (chat_id,))
+        msg_count = records[0][0] if records else 0
+        records = await self._db_exec("SELECT COUNT(*) FROM messages WHERE chat_id = ? AND media_type NOT IN ('none','service','contact','geo','poll')", (chat_id,))
+        media_count = records[0][0] if records else 0
+
+        if self.config["use_whitelist"] and chat_id not in self.whitelist:
+            note = f"\n\n<i>{self.strings('chats_no_wl')}</i>"
+        else:
+            note = ""
+
+        return f"⚙️ <b>{name}</b>\n\n<b>{self.strings('chat_messages')}:</b> <code>{msg_count}</code>\n<b>{self.strings('chat_media')}:</b> <code>{media_count}</code>{note}"
+
+    async def _build_chat_markup(self, chat_id):
+        cfg = self._chat_config.get(str(chat_id), {})
+        in_wl = chat_id in self.whitelist
+        in_bl = chat_id in self.blacklist
+
+        wl_btn = {"text": self.strings("btn_wl_on"), "callback": self._inline__toggle_wl, "args": (chat_id,), "style": "success" if in_wl else None}
+        bl_btn = {"text": (self.strings("btn_bl_on") if in_bl else self.strings("btn_bl_off")), "callback": self._inline__toggle_bl, "args": (chat_id,), "style": "danger" if in_bl else None}
+
+        notif_val = cfg.get("notifications")
+        if notif_val is True:
+            notif_text, notif_style = self.strings("btn_notif_on"), "success"
+        elif notif_val is False:
+            notif_text, notif_style = self.strings("btn_notif_off"), "danger"
+        else:
+            notif_text, notif_style = self.strings("btn_notif_default"), None
+        notif_btn = {"text": notif_text, "callback": self._inline__toggle_notif, "args": (chat_id,), "style": notif_style}
+
+        sm_val = cfg.get("save_messages")
+        if sm_val is True:
+            sm_text, sm_style = self.strings("btn_save_msg_on"), "success"
+        elif sm_val is False:
+            sm_text, sm_style = self.strings("btn_save_msg_off"), "danger"
+        else:
+            sm_text, sm_style = self.strings("btn_save_msg_default"), None
+        sm_btn = {"text": sm_text, "callback": self._inline__toggle_save_msg, "args": (chat_id,), "style": sm_style}
+
+        all_on = cfg.get("save_photo", True) and cfg.get("save_video", True) and cfg.get("save_files", True)
+        any_on = cfg.get("save_photo", True) or cfg.get("save_video", True) or cfg.get("save_files", True)
+        if not any_on:
+            media_style = "danger"
+        elif all_on:
+            media_style = "success"
+        else:
+            media_style = "primary"
+        media_btn = {"text": self.strings("btn_save_media_sub"), "callback": self._inline__chat_media_menu, "args": (chat_id,), "style": media_style}
+
+        return [
+            [wl_btn, bl_btn],
+            [notif_btn],
+            [sm_btn],
+            [media_btn],
+            [{"text": self.strings("btn_delete_db"), "callback": self._inline__delete_db_ask, "args": (chat_id,), "style": "danger"}],
+            [{"text": self.strings("btn_back"), "callback": self._inline__chats_menu, "args": (0, "all"), "style": "danger"}],
+        ]
+
+    async def _inline__toggle_wl(self, call: InlineCall, chat_id: int):
+        if chat_id in self.whitelist:
+            self.whitelist.remove(chat_id)
+        else:
+            self.whitelist.append(chat_id)
+            if chat_id in self.blacklist:
+                self.blacklist.remove(chat_id)
+        await self._inline__chat_menu(call, chat_id)
+
+    async def _inline__toggle_bl(self, call: InlineCall, chat_id: int):
+        if chat_id in self.blacklist:
+            self.blacklist.remove(chat_id)
+        else:
+            self.blacklist.append(chat_id)
+            if chat_id in self.whitelist:
+                self.whitelist.remove(chat_id)
+        await self._inline__chat_menu(call, chat_id)
+
+    async def _inline__toggle_notif(self, call: InlineCall, chat_id: int):
+        cfg = self._chat_config.get(str(chat_id), {})
+        cur = cfg.get("notifications")
+        cfg["notifications"] = False if cur is True else (None if cur is False else True)
+        self._chat_config[str(chat_id)] = cfg
+        await self._inline__chat_menu(call, chat_id)
+
+    async def _inline__toggle_save_msg(self, call: InlineCall, chat_id: int):
+        cfg = self._chat_config.get(str(chat_id), {})
+        cur = cfg.get("save_messages")
+        cfg["save_messages"] = False if cur is True else (None if cur is False else True)
+        self._chat_config[str(chat_id)] = cfg
+        await self._inline__chat_menu(call, chat_id)
+
+    async def _inline__chat_media_menu(self, call: InlineCall, chat_id: int):
+        cfg = self._chat_config.get(str(chat_id), {})
+
+        all_on = cfg.get("save_photo", True) and cfg.get("save_video", True) and cfg.get("save_files", True)
+        all_btn = {"text": self.strings("btn_save_all_media_on") if all_on else self.strings("btn_save_all_media_off"), "callback": self._inline__toggle_all_media, "args": (chat_id,), "style": "success" if all_on else "danger"}
+
+        photo_on = cfg.get("save_photo", True)
+        photo_btn = {"text": self.strings("btn_photo_on") if photo_on else self.strings("btn_photo_off"), "callback": self._inline__toggle_photo, "args": (chat_id,), "style": "success" if photo_on else "danger"}
+
+        vid_on = cfg.get("save_video", True)
+        vid_btn = {"text": self.strings("btn_video_on") if vid_on else self.strings("btn_video_off"), "callback": self._inline__toggle_video, "args": (chat_id,), "style": "success" if vid_on else "danger"}
+
+        files_on = cfg.get("save_files", True)
+        files_btn = {"text": self.strings("btn_files_on") if files_on else self.strings("btn_files_off"), "callback": self._inline__toggle_files, "args": (chat_id,), "style": "success" if files_on else "danger"}
+
+        await call.edit(
+            await self._build_chat_text(chat_id),
+            reply_markup=[
+                [all_btn],
+                [photo_btn, vid_btn],
+                [files_btn],
+                [{"text": self.strings("btn_back"), "callback": self._inline__chat_menu, "args": (chat_id,), "style": "danger"}],
+            ],
+        )
+
+    async def _inline__toggle_all_media(self, call: InlineCall, chat_id: int):
+        cfg = self._chat_config.get(str(chat_id), {})
+        all_on = cfg.get("save_photo", True) and cfg.get("save_video", True) and cfg.get("save_files", True)
+        val = False if all_on else True
+        cfg["save_photo"] = val
+        cfg["save_video"] = val
+        cfg["save_files"] = val
+        self._chat_config[str(chat_id)] = cfg
+        await self._inline__chat_media_menu(call, chat_id)
+
+    async def _inline__toggle_photo(self, call: InlineCall, chat_id: int):
+        cfg = self._chat_config.get(str(chat_id), {})
+        cfg["save_photo"] = not cfg.get("save_photo", True)
+        self._chat_config[str(chat_id)] = cfg
+        await self._inline__chat_media_menu(call, chat_id)
+
+    async def _inline__toggle_video(self, call: InlineCall, chat_id: int):
+        cfg = self._chat_config.get(str(chat_id), {})
+        cfg["save_video"] = not cfg.get("save_video", True)
+        self._chat_config[str(chat_id)] = cfg
+        await self._inline__chat_media_menu(call, chat_id)
+
+    async def _inline__toggle_files(self, call: InlineCall, chat_id: int):
+        cfg = self._chat_config.get(str(chat_id), {})
+        cfg["save_files"] = not cfg.get("save_files", True)
+        self._chat_config[str(chat_id)] = cfg
+        await self._inline__chat_media_menu(call, chat_id)
+
+    async def _inline__delete_db_ask(self, call: InlineCall, chat_id: int):
+        try:
+            ent = await self._client.get_entity(chat_id)
+            name = utils.escape_html(self._clean_name(getattr(ent, "title", getattr(ent, "first_name", str(chat_id))) or str(chat_id)))
+        except Exception:
+            name = str(chat_id)
+        await call.edit(
+            f"{self.strings('delete_db_confirm')}\n\n<b>{name}</b>",
+            reply_markup=[
+                [{"text": self.strings("btn_yes"), "callback": self._inline__delete_db_do, "args": (chat_id,), "style": "danger"}],
+                [{"text": self.strings("btn_no"), "callback": self._inline__chat_menu, "args": (chat_id,)}],
+            ],
+        )
+
+    async def _inline__delete_db_do(self, call: InlineCall, chat_id: int):
+        rows = await self._db_exec("SELECT media_path, media_type FROM messages WHERE chat_id = ?", (chat_id,))
+        for row in rows:
+            self._cleanup_media_file(row[0], row[1])
+        await self._db_run("DELETE FROM messages WHERE chat_id = ?", (chat_id,))
+        await self._db_run("DELETE FROM auto_cached WHERE chat_id = ?", (chat_id,))
+        self.cached_chats.discard(chat_id)
+        self._chat_types.pop(chat_id, None)
+        self._chat_config.pop(str(chat_id), None)
+        await call.answer("Deleted", show_alert=False)
+        await self._inline__main_menu(call)
