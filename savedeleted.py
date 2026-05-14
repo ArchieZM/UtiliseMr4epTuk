@@ -2249,27 +2249,19 @@ class SaveDeletedMod(loader.Module):
 
         notif_val = cfg.get("notifications")
         if notif_val is True:
-            notif_text, notif_style = self.strings("btn_notif_on"), "success"
+            notif_btn = {"text": self.strings("btn_notif_on"), "callback": self._inline__toggle_notif, "args": (chat_id,), "style": "success"}
         elif notif_val is False:
-            notif_text, notif_style = self.strings("btn_notif_off"), "danger"
+            notif_btn = {"text": self.strings("btn_notif_off"), "callback": self._inline__toggle_notif, "args": (chat_id,), "style": "danger"}
         else:
-            notif_text = self.strings("btn_notif_default")
-            notif_style = None
-        notif_btn = {"text": notif_text, "callback": self._inline__toggle_notif, "args": (chat_id,)}
-        if notif_style:
-            notif_btn["style"] = notif_style
+            notif_btn = {"text": self.strings("btn_notif_default"), "callback": self._inline__toggle_notif, "args": (chat_id,)}
 
         sm_val = cfg.get("save_messages")
         if sm_val is True:
-            sm_text, sm_style = self.strings("btn_save_msg_on"), "success"
+            sm_btn = {"text": self.strings("btn_save_msg_on"), "callback": self._inline__toggle_save_msg, "args": (chat_id,), "style": "success"}
         elif sm_val is False:
-            sm_text, sm_style = self.strings("btn_save_msg_off"), "danger"
+            sm_btn = {"text": self.strings("btn_save_msg_off"), "callback": self._inline__toggle_save_msg, "args": (chat_id,), "style": "danger"}
         else:
-            sm_text = self.strings("btn_save_msg_default")
-            sm_style = None
-        sm_btn = {"text": sm_text, "callback": self._inline__toggle_save_msg, "args": (chat_id,)}
-        if sm_style:
-            sm_btn["style"] = sm_style
+            sm_btn = {"text": self.strings("btn_save_msg_default"), "callback": self._inline__toggle_save_msg, "args": (chat_id,)}
 
         all_on = cfg.get("save_photo", True) and cfg.get("save_video", True) and cfg.get("save_files", True)
         any_on = cfg.get("save_photo", True) or cfg.get("save_video", True) or cfg.get("save_files", True)
