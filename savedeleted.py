@@ -2106,9 +2106,12 @@ class SaveDeletedMod(loader.Module):
             reply_markup=[
                 [{"text": "Chats", "callback": self._inline__chats_menu, "args": (0, "all")}],
                 [{"text": "Settings", "callback": self._inline__settings_link}],
-                [{"text": "Close", "action": "close", "style": "danger"}],
+                [{"text": "Close", "callback": self._inline__close_form}],
             ],
         )
+
+    async def _inline__close_form(self, call: InlineCall):
+        await call.delete()
 
     async def _inline__settings_link(self, call: InlineCall):
         await call.answer("Use .cfg SaveDeleted", show_alert=True)
@@ -2143,7 +2146,7 @@ class SaveDeletedMod(loader.Module):
         await call.edit(text, reply_markup=[
             [{"text": "Chats", "callback": self._inline__chats_menu, "args": (0, "all")}],
             [{"text": "Settings", "callback": self._inline__settings_link}],
-            [{"text": "Close", "action": "close", "style": "danger"}],
+            [{"text": "Close", "callback": self._inline__close_form}],
         ])
 
     async def _inline__chats_menu(self, call: InlineCall, page: int, tab: str):
@@ -2158,11 +2161,12 @@ class SaveDeletedMod(loader.Module):
         filtered = []
         for cid in chat_ids:
             ctype = self._chat_types.get(cid, "")
-            if tab == "all" or tab == ctype:
-                if tab == "bots" or (tab != "bots" and tab == ctype):
-                    filtered.append((cid, ctype))
-                elif tab == "all":
-                    filtered.append((cid, ctype))
+            if tab == "all":
+                filtered.append((cid, ctype))
+            elif tab == "pm" and ctype == "user":
+                filtered.append((cid, ctype))
+            elif tab == ctype:
+                filtered.append((cid, ctype))
 
         per_page = 5
         total_pages = max(1, (len(filtered) + per_page - 1) // per_page)
@@ -2186,7 +2190,7 @@ class SaveDeletedMod(loader.Module):
         tabs_row = []
         for t, key in [("pm", "PM"), ("group", "Groups"), ("channel", "Channels")]:
             if tab == t:
-                tabs_row.append({"text": f"> {key}", "callback": self._inline__chats_menu, "args": (0, t), "style": "success"})
+                tabs_row.append({"text": f"> {key}", "callback": self._inline__chats_menu, "args": (0, t)})
             else:
                 tabs_row.append({"text": key, "callback": self._inline__chats_menu, "args": (0, t)})
 
@@ -2197,7 +2201,7 @@ class SaveDeletedMod(loader.Module):
                 total_pages=total_pages,
                 current_page=page + 1,
             ))
-        markup.append([{"text": "Back", "callback": self._inline__main_menu, "style": "danger"}])
+        markup.append([{"text": "Back", "callback": self._inline__main_menu}])
 
         await call.edit(f"<b>SaveDeleted</b>\n\n<b>Chats</b>", reply_markup=markup)
 
@@ -2233,50 +2237,38 @@ class SaveDeletedMod(loader.Module):
         return f"<b>{name}</b>\n\nMessages: <code>{mc}</code>\nMedia: <code>{medc}</code>{note}"
 
     async def _build_chat_markup(self, chat_id):
-        cfg = self._chat_config.get(str(chat_id), {})
+        cfg = self._chat_config.get(str(chat_id)) or {}
         in_wl = chat_id in self.whitelist
         in_bl = chat_id in self.blacklist
 
         wl_btn = {"text": "WL: ON" if in_wl else "WL: OFF", "callback": self._inline__toggle_wl, "args": (chat_id,)}
-        if in_wl:
-            wl_btn["style"] = "success"
         bl_btn = {"text": "BL: ON" if in_bl else "BL: OFF", "callback": self._inline__toggle_bl, "args": (chat_id,)}
-        if in_bl:
-            bl_btn["style"] = "danger"
 
         notif_val = cfg.get("notifications")
         if notif_val is True:
-            notif_btn = {"text": "Notif: ON", "callback": self._inline__toggle_notif, "args": (chat_id,), "style": "success"}
+            notif_btn = {"text": "Notif: ON", "callback": self._inline__toggle_notif, "args": (chat_id,)}
         elif notif_val is False:
-            notif_btn = {"text": "Notif: OFF", "callback": self._inline__toggle_notif, "args": (chat_id,), "style": "danger"}
+            notif_btn = {"text": "Notif: OFF", "callback": self._inline__toggle_notif, "args": (chat_id,)}
         else:
             notif_btn = {"text": "Notif: default", "callback": self._inline__toggle_notif, "args": (chat_id,)}
 
         sm_val = cfg.get("save_messages")
         if sm_val is True:
-            sm_btn = {"text": "SaveMsg: ON", "callback": self._inline__toggle_save_msg, "args": (chat_id,), "style": "success"}
+            sm_btn = {"text": "SaveMsg: ON", "callback": self._inline__toggle_save_msg, "args": (chat_id,)}
         elif sm_val is False:
-            sm_btn = {"text": "SaveMsg: OFF", "callback": self._inline__toggle_save_msg, "args": (chat_id,), "style": "danger"}
+            sm_btn = {"text": "SaveMsg: OFF", "callback": self._inline__toggle_save_msg, "args": (chat_id,)}
         else:
             sm_btn = {"text": "SaveMsg: default", "callback": self._inline__toggle_save_msg, "args": (chat_id,)}
 
-        all_on = cfg.get("save_photo", True) and cfg.get("save_video", True) and cfg.get("save_files", True)
-        any_on = cfg.get("save_photo", True) or cfg.get("save_video", True) or cfg.get("save_files", True)
-        if not any_on:
-            mstyle = "danger"
-        elif all_on:
-            mstyle = "success"
-        else:
-            mstyle = "primary"
-        media_btn = {"text": "Save Media >", "callback": self._inline__chat_media_menu, "args": (chat_id,), "style": mstyle}
+        media_btn = {"text": "Save Media >", "callback": self._inline__chat_media_menu, "args": (chat_id,)}
 
         return [
             [wl_btn, bl_btn],
             [notif_btn],
             [sm_btn],
             [media_btn],
-            [{"text": "Delete DB", "callback": self._inline__delete_db_ask, "args": (chat_id,), "style": "danger"}],
-            [{"text": "Back", "callback": self._inline__chats_menu, "args": (0, "all"), "style": "danger"}],
+            [{"text": "Delete DB", "callback": self._inline__delete_db_ask, "args": (chat_id,)}],
+            [{"text": "Back", "callback": self._inline__chats_menu, "args": (0, "all")}],
         ]
 
     async def _inline__toggle_wl(self, call: InlineCall, chat_id: int):
@@ -2298,51 +2290,47 @@ class SaveDeletedMod(loader.Module):
         await self._inline__chat_menu(call, chat_id)
 
     async def _inline__toggle_notif(self, call: InlineCall, chat_id: int):
-        cfg = dict(self._chat_config.get(str(chat_id), {}))
+        cfg = dict(self._chat_config.get(str(chat_id)) or {})
         cur = cfg.get("notifications")
         cfg["notifications"] = False if cur is True else (None if cur is False else True)
         self._chat_config[str(chat_id)] = cfg
         await self._inline__chat_menu(call, chat_id)
 
     async def _inline__toggle_save_msg(self, call: InlineCall, chat_id: int):
-        cfg = dict(self._chat_config.get(str(chat_id), {}))
+        cfg = dict(self._chat_config.get(str(chat_id)) or {})
         cur = cfg.get("save_messages")
         cfg["save_messages"] = False if cur is True else (None if cur is False else True)
         self._chat_config[str(chat_id)] = cfg
         await self._inline__chat_menu(call, chat_id)
 
     async def _inline__chat_media_menu(self, call: InlineCall, chat_id: int):
-        cfg = self._chat_config.get(str(chat_id), {})
-
-        all_on = cfg.get("save_photo", True) and cfg.get("save_video", True) and cfg.get("save_files", True)
-        all_btn = {"text": "All media: ON" if all_on else "All media: OFF", "callback": self._inline__toggle_all_media, "args": (chat_id,), "style": "success" if all_on else "danger"}
-
-        p_on = cfg.get("save_photo", True)
-        p_btn = {"text": "Photo: ON" if p_on else "Photo: OFF", "callback": self._inline__toggle_photo, "args": (chat_id,), "style": "success" if p_on else "danger"}
-
-        v_on = cfg.get("save_video", True)
-        v_btn = {"text": "Video: ON" if v_on else "Video: OFF", "callback": self._inline__toggle_video, "args": (chat_id,), "style": "success" if v_on else "danger"}
-
-        f_on = cfg.get("save_files", True)
-        f_btn = {"text": "Files: ON" if f_on else "Files: OFF", "callback": self._inline__toggle_files, "args": (chat_id,), "style": "success" if f_on else "danger"}
-
-        await call.edit(
-            await self._build_chat_text(chat_id),
-            reply_markup=[
-                [all_btn],
-                [p_btn, v_btn],
-                [f_btn],
-                [{"text": "Back", "callback": self._inline__chat_menu, "args": (chat_id,), "style": "danger"}],
-            ],
-        )
+        cfg = self._chat_config.get(str(chat_id)) or {}
 
     async def _inline__toggle_all_media(self, call: InlineCall, chat_id: int):
-        cfg = dict(self._chat_config.get(str(chat_id), {}))
+        cfg = dict(self._chat_config.get(str(chat_id)) or {})
         all_on = cfg.get("save_photo", True) and cfg.get("save_video", True) and cfg.get("save_files", True)
         val = not all_on
         cfg["save_photo"] = val
         cfg["save_video"] = val
         cfg["save_files"] = val
+        self._chat_config[str(chat_id)] = cfg
+        await self._inline__chat_media_menu(call, chat_id)
+
+    async def _inline__toggle_photo(self, call: InlineCall, chat_id: int):
+        cfg = dict(self._chat_config.get(str(chat_id)) or {})
+        cfg["save_photo"] = not cfg.get("save_photo", True)
+        self._chat_config[str(chat_id)] = cfg
+        await self._inline__chat_media_menu(call, chat_id)
+
+    async def _inline__toggle_video(self, call: InlineCall, chat_id: int):
+        cfg = dict(self._chat_config.get(str(chat_id)) or {})
+        cfg["save_video"] = not cfg.get("save_video", True)
+        self._chat_config[str(chat_id)] = cfg
+        await self._inline__chat_media_menu(call, chat_id)
+
+    async def _inline__toggle_files(self, call: InlineCall, chat_id: int):
+        cfg = dict(self._chat_config.get(str(chat_id)) or {})
+        cfg["save_files"] = not cfg.get("save_files", True)
         self._chat_config[str(chat_id)] = cfg
         await self._inline__chat_media_menu(call, chat_id)
 
@@ -2373,7 +2361,7 @@ class SaveDeletedMod(loader.Module):
         await call.edit(
             f"Delete all data for this chat?\n\n<b>{name}</b>",
             reply_markup=[
-                [{"text": "Yes, delete", "callback": self._inline__delete_db_do, "args": (chat_id,), "style": "danger"}],
+                [{"text": "Yes, delete", "callback": self._inline__delete_db_do, "args": (chat_id,)}],
                 [{"text": "No", "callback": self._inline__chat_menu, "args": (chat_id,)}],
             ],
         )
