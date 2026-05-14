@@ -2051,15 +2051,53 @@ class SaveDeletedMod(loader.Module):
     @loader.command(ru_doc="[юз/ID/ссылка] — меню SaveDeleted", en_doc="[@/ID/link] — SaveDeleted menu")
     async def sdcmd(self, message: Message):
         """Open SaveDeleted control panel"""
-        records = await self._db_exec("SELECT COUNT(*) FROM messages")
-        count = records[0][0] if records else 0
-        records = await self._db_exec("SELECT COUNT(DISTINCT chat_id) FROM messages")
-        chats = records[0][0] if records else 0
+        args = utils.get_args_raw(message)
+        if args:
+            entity = None
+            try:
+                entity = await self._client.get_entity(args)
+            except Exception:
+                pass
+            if not entity:
+                try:
+                    n = int(args)
+                    if n > 0:
+                        entity = await self._client.get_entity(-1000000000000 - n)
+                except Exception:
+                    pass
+            if entity:
+                chat_id = getattr(entity, "id", 0)
+                if chat_id < 0:
+                    chat_id = int(self._bare_id(chat_id))
+                if chat_id not in self.cached_chats:
+                    self._run_in_background(self._auto_cache_chat(chat_id))
+                return await self._show_main_menu(message)
+        await self._show_main_menu(message)
 
+    async def _show_main_menu(self, message):
         await self.inline.form(
-            text=f"<b>SaveDeleted</b>\n\nMessages: <code>{count}</code>\nChats: <code>{chats}</code>\nWL: <code>{len(self.whitelist)}</code>  BL: <code>{len(self.blacklist)}</code>",
+            text="<b>SaveDeleted</b>",
             message=message,
             reply_markup=[
+                [{"text": "Chats", "callback": self._inline__chats_menu, "args": (0, "all")}],
+                [{"text": "Close", "action": "close"}],
+            ],
+        )
+
+    async def _inline__chats_menu(self, call: InlineCall, page: int, tab: str):
+        self._chats_tab = tab
+        await call.edit(
+            f"<b>SaveDeleted</b>\n\n<i>Chats list (page {page}, tab {tab})</i>",
+            reply_markup=[
+                [{"text": "Back", "callback": self._inline__main_menu}],
+            ],
+        )
+
+    async def _inline__main_menu(self, call: InlineCall):
+        await call.edit(
+            "<b>SaveDeleted</b>",
+            reply_markup=[
+                [{"text": "Chats", "callback": self._inline__chats_menu, "args": (0, "all")}],
                 [{"text": "Close", "action": "close"}],
             ],
         )
