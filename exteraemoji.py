@@ -47,7 +47,7 @@ _BOT_METHODS = (
     "send_media_group",
 )
 
-_TEXT_KEYS = ("text", "caption")
+_TEXT_KEYS = ("text", "caption", "title")
 
 
 @loader.tds
@@ -316,6 +316,14 @@ class ExteraEmojiMod(loader.Module):
             for key in _TEXT_KEYS:
                 if key in new_kwargs and isinstance(new_kwargs[key], str):
                     new_kwargs[key] = module._replace_html(new_kwargs[key])
+            for key in ("media",):
+                val = new_kwargs.get(key)
+                if val is None:
+                    continue
+                items = val if isinstance(val, list) else [val]
+                for item in items:
+                    if hasattr(item, "caption") and isinstance(item.caption, str):
+                        item.caption = module._replace_html(item.caption)
             return new_args, new_kwargs
 
         def _make_patched(orig):
