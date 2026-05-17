@@ -110,12 +110,12 @@ class ExteraEmojiMod(loader.Module):
         await self._try_hook_inline_bot()
 
     @loader.command(
-        ru_doc="Включить/выключить замену премиум-эмодзи на ссылки",
-        en_doc="Toggle premium emoji → link replacement on/off",
+        ru_doc="Включить/выключить замену премиум-эмодзи на ссылки (алиас: .ee)",
+        en_doc="Toggle premium emoji → link replacement on/off (alias: .ee)",
         alias="ee",
     )
     async def exteraemojicmd(self, message: Message):
-        """Toggle ExteraEmoji replacement on/off"""
+        """Toggle ExteraEmoji replacement on/off — alias: .ee"""
         current = self.config["enabled"]
         self.config["enabled"] = not current
         if current:
