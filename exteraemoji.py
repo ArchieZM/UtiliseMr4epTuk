@@ -46,14 +46,7 @@ _TEXT_KEYS = ("text", "caption")
 
 @loader.tds
 class ExteraEmojiMod(loader.Module):
-    """Сделано для пользователей ExteraGram без Telegram Premium.
-
-    Как работает: Заменяет ВСЕ исходящие премиум-эмоджи на ссылки
-    tg://emoji?id=... ДО того, как они покинут Userbot'а.
-    Пользователи ExteraGram могут видеть все премиум эмодзи которые
-    будут в Heroku даже без подписки Premium, а также поддерживает модули.
-
-    Made for ExteraGram users without Telegram Premium.
+    """Made for ExteraGram users without Telegram Premium.
 
     How it works: Replaces ALL outgoing premium emoji with links
     tg://emoji?id=... BEFORE they leave Userbot. ExteraGram users
@@ -66,9 +59,9 @@ class ExteraEmojiMod(loader.Module):
         "cfg_enabled_doc": "Enable/disable premium emoji → link conversion",
         "cfg_ignored": "Ignored chats",
         "cfg_ignored_doc": "Chat IDs where replacement is skipped (Saved Messages auto-ignored)",
-        "_cls_doc": "Сделано для пользователей ExteraGram без Telegram Premium.\n\nКак работает: Заменяет ВСЕ исходящие премиум-эмоджи на ссылки tg://emoji?id=... ДО того, как они покинут Userbot'а. Пользователи ExteraGram могут видеть все премиум эмодзи которые будут в Heroku даже без подписки Premium, а также поддерживает модули.\n\nMade for ExteraGram users without Telegram Premium.\n\nHow it works: Replaces ALL outgoing premium emoji with links tg://emoji?id=... BEFORE they leave Userbot. ExteraGram users can see all the premium emoji that will be in Heroku even without a Premium subscription, and also supports modules.",
-        "toggled_on": "✅ <b>ExteraEmoji ВКЛЮЧЕН</b>\n\n<tg-emoji emoji-id=5463001519211161219>❤</tg-emoji><tg-emoji emoji-id=5463227726548707612>❤</tg-emoji><tg-emoji emoji-id=5463115636492217326>❤</tg-emoji><tg-emoji emoji-id=5463078158607591121>❤</tg-emoji> ← проверка",
-        "toggled_off": "❌ <b>ExteraEmoji ВЫКЛЮЧЕН</b>\n\n<tg-emoji emoji-id=5463001519211161219>❤</tg-emoji><tg-emoji emoji-id=5463227726548707612>❤</tg-emoji><tg-emoji emoji-id=5463115636492217326>❤</tg-emoji><tg-emoji emoji-id=5463078158607591121>❤</tg-emoji> ← проверка",
+        "_cls_doc": "Made for ExteraGram users without Telegram Premium.\n\nHow it works: Replaces ALL outgoing premium emoji with links tg://emoji?id=... BEFORE they leave Userbot. ExteraGram users can see all the premium emoji that will be in Heroku even without a Premium subscription, and also supports modules.",
+        "toggled_on": "✅ <b>ExteraEmoji is now ON</b>\n\n<tg-emoji emoji-id=5463001519211161219>❤</tg-emoji><tg-emoji emoji-id=5463227726548707612>❤</tg-emoji><tg-emoji emoji-id=5463115636492217326>❤</tg-emoji><tg-emoji emoji-id=5463078158607591121>❤</tg-emoji> ← check",
+        "toggled_off": "❌ <b>ExteraEmoji is now OFF</b>\n\n<tg-emoji emoji-id=5463001519211161219>❤</tg-emoji><tg-emoji emoji-id=5463227726548707612>❤</tg-emoji><tg-emoji emoji-id=5463115636492217326>❤</tg-emoji><tg-emoji emoji-id=5463078158607591121>❤</tg-emoji> ← check",
     }
 
     strings_ru = {
@@ -77,7 +70,7 @@ class ExteraEmojiMod(loader.Module):
         "cfg_enabled_doc": "Включить/выключить замену премиум-эмодзи на ссылки",
         "cfg_ignored": "Игнорируемые чаты",
         "cfg_ignored_doc": "ID чатов где замена не производится (Избранное авто-игнорируется)",
-        "_cls_doc": "Сделано для пользователей ExteraGram без Telegram Premium.\n\nКак работает: Заменяет ВСЕ исходящие премиум-эмоджи на ссылки tg://emoji?id=... ДО того, как они покинут Userbot'а. Пользователи ExteraGram могут видеть все премиум эмодзи которые будут в Heroku даже без подписки Premium, а также поддерживает модули.\n\nMade for ExteraGram users without Telegram Premium.\n\nHow it works: Replaces ALL outgoing premium emoji with links tg://emoji?id=... BEFORE they leave Userbot. ExteraGram users can see all the premium emoji that will be in Heroku even without a Premium subscription, and also supports modules.",
+        "_cls_doc": "Сделано для пользователей ExteraGram без Telegram Premium.\n\nКак работает: Заменяет ВСЕ исходящие премиум-эмоджи на ссылки tg://emoji?id=... ДО того, как они покинут Userbot'а. Пользователи ExteraGram могут видеть все премиум эмодзи которые будут в Heroku даже без подписки Premium, а также поддерживает модули.",
         "toggled_on": "✅ <b>ExteraEmoji ВКЛЮЧЕН</b>\n\n<tg-emoji emoji-id=5463001519211161219>❤</tg-emoji><tg-emoji emoji-id=5463227726548707612>❤</tg-emoji><tg-emoji emoji-id=5463115636492217326>❤</tg-emoji><tg-emoji emoji-id=5463078158607591121>❤</tg-emoji> ← проверка",
         "toggled_off": "❌ <b>ExteraEmoji ВЫКЛЮЧЕН</b>\n\n<tg-emoji emoji-id=5463001519211161219>❤</tg-emoji><tg-emoji emoji-id=5463227726548707612>❤</tg-emoji><tg-emoji emoji-id=5463115636492217326>❤</tg-emoji><tg-emoji emoji-id=5463078158607591121>❤</tg-emoji> ← проверка",
     }
@@ -101,7 +94,6 @@ class ExteraEmojiMod(loader.Module):
     async def client_ready(self, client, db):
         self._client = client
         self._db = db
-        self._tg_id = getattr(self._client, "tg_id", None) or getattr(self, "_tg_id", 0)
         self._processed = set()
         self._hooked_mtproto = False
         self._hooked_bot = False
