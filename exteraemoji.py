@@ -25,6 +25,8 @@ _TG_EMOJI_TAG_RE = re.compile(
     r'<tg-emoji\s+emoji-id=["\x27]?(\d+)["\x27]?[^>]*>([^<]*)</tg-emoji>'
 )
 
+_CODE_BLOCK_RE = re.compile(r"(<pre><code[^>]*>.*?</code></pre>)", re.DOTALL)
+
 _BOT_METHODS = (
     "send_message",
     "edit_message_text",
@@ -112,6 +114,7 @@ class ExteraEmojiMod(loader.Module):
     @loader.command(
         ru_doc="Включить/выключить замену премиум-эмодзи на ссылки",
         en_doc="Toggle premium emoji → link replacement on/off",
+        aliases=["ee"],
     )
     async def exteraemojicmd(self, message: Message):
         """Toggle ExteraEmoji replacement on/off"""
@@ -130,17 +133,23 @@ class ExteraEmojiMod(loader.Module):
         if not isinstance(text, str) or not text:
             return text
 
-        text = _EMOJI_TAG_RE.sub(
-            lambda m: '<a href="tg://emoji?id={}">{}</a>'.format(m.group(1), m.group(2)),
-            text,
-        )
+        parts = _CODE_BLOCK_RE.split(text)
 
-        text = _TG_EMOJI_TAG_RE.sub(
-            lambda m: '<a href="tg://emoji?id={}">{}</a>'.format(m.group(1), m.group(2)),
-            text,
-        )
+        for i, part in enumerate(parts):
+            if part.startswith("<pre><code"):
+                continue
 
-        return text
+            part = _EMOJI_TAG_RE.sub(
+                lambda m: '<a href="tg://emoji?id={}">{}</a>'.format(m.group(1), m.group(2)),
+                part,
+            )
+            part = _TG_EMOJI_TAG_RE.sub(
+                lambda m: '<a href="tg://emoji?id={}">{}</a>'.format(m.group(1), m.group(2)),
+                part,
+            )
+            parts[i] = part
+
+        return "".join(parts)
 
     def _is_ignored_chat(self, chat_id: int) -> bool:
         if chat_id == self._tg_id:
