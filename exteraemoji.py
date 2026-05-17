@@ -161,14 +161,32 @@ class ExteraEmojiMod(loader.Module):
         if not entities:
             return entities
 
-        skip_ranges = sorted(
-            (e.offset, e.offset + e.length)
-            for e in entities
-            if type(e).__name__ in ("MessageEntityPre", "MessageEntityCode")
-        )
+        names_seen = set()
+        skip_ranges = []
 
+        for e in entities:
+            name = type(e).__name__
+            names_seen.add(name)
+
+            is_pre = (
+                hasattr(e, "language")
+                or name == "MessageEntityPre"
+                or name.startswith("MessageEntityPre")
+            )
+            is_code = (
+                name == "MessageEntityCode"
+                or name.startswith("MessageEntityCode")
+            )
+
+            if is_pre or is_code:
+                skip_ranges.append((e.offset, e.offset + e.length))
+
+        skip_ranges.sort()
+
+        if names_seen:
+            logger.info("ExteraEmoji: entity types in request: %s", sorted(names_seen))
         if skip_ranges:
-            logger.debug("ExteraEmoji: skip_ranges=%s", skip_ranges)
+            logger.info("ExteraEmoji: skip_ranges (pre/code)=%s", skip_ranges)
 
         changed = False
         result = []
@@ -193,7 +211,7 @@ class ExteraEmojiMod(loader.Module):
                 result.append(entity)
 
         if skipped:
-            logger.debug("ExteraEmoji: skipped %d emoji inside code blocks", skipped)
+            logger.info("ExteraEmoji: skipped %d emoji inside code blocks", skipped)
 
         return result if changed else entities
 
