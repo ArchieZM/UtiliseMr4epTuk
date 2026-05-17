@@ -28,7 +28,7 @@ _TG_EMOJI_TAG_RE = re.compile(
     r'<tg-emoji\s+emoji-id=["\x27]?(\d+)["\x27]?[^>]*>([^<]*)</tg-emoji>'
 )
 
-_CODE_BLOCK_RE = re.compile(r"(<pre><code[^>]*>.*?</code></pre>)", re.DOTALL)
+_CODE_BLOCK_RE = re.compile(r"(<pre>\s*<code[^>]*>.*?</code>\s*</pre>)", re.DOTALL)
 
 _BOT_METHODS = (
     "send_message",
