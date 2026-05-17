@@ -13,6 +13,7 @@ from herokutl.tl.types import (
     MessageEntityTextUrl,
     UpdateEditMessage,
     UpdateEditChannelMessage,
+    InputPeerSelf,
 )
 
 logger = logging.getLogger(__name__)
@@ -43,46 +44,40 @@ _TEXT_KEYS = ("text", "caption")
 
 @loader.tds
 class ExteraEmojiMod(loader.Module):
-    """Converts outgoing premium emojis to clickable tg://emoji links — made for ExteraGram users without Telegram Premium.
+    """Сделано для пользователей ExteraGram без Telegram Premium.
 
-    Replaces ALL outgoing premium emojis with tg://emoji?id=... links
-    BEFORE they leave the client. ExteraGram users can tap the emoji
-    and see the sticker preview even without a Premium subscription.
+    Как работает: Заменяет ВСЕ исходящие премиум-эмоджи на ссылки
+    tg://emoji?id=... ДО того, как они покинут Userbot'а.
+    Пользователи ExteraGram могут видеть все премиум эмодзи которые
+    будут в Heroku даже без подписки Premium, а также поддерживает модули.
 
-    Works in:
-    • Regular messages (MTProto TL-layer interception)
-    • Edited messages
-    • Media captions (photos, videos, documents)
-    • Inline bot messages & forms (aiogram Bot-layer interception)
-    • Albums / media groups
+    Made for ExteraGram users without Telegram Premium.
 
-    Commands:
-    .exteraemoji — toggle replacement on/off"""
+    How it works: Replaces ALL outgoing premium emoji with links
+    tg://emoji?id=... BEFORE they leave Userbot. ExteraGram users
+    can see all the premium emoji that will be in Heroku even without
+    a Premium subscription, and also supports modules."""
 
     strings = {
         "name": "ExteraEmoji",
         "cfg_enabled": "Enable replacement",
-        "cfg_enabled_doc": "Enable/disable premium emoji → link conversion globally",
-        "cfg_template": "Link template",
-        "cfg_template_doc": "URL template ({doc_id} = emoji document ID). Default: tg://emoji?id={doc_id}",
+        "cfg_enabled_doc": "Enable/disable premium emoji → link conversion",
         "cfg_ignored": "Ignored chats",
-        "cfg_ignored_doc": "Chat IDs (comma-separated) where replacement is skipped",
-        "_cls_doc": "Converts outgoing premium emojis to clickable tg://emoji links — made for ExteraGram users without Telegram Premium.\n\nReplaces ALL outgoing premium emojis with tg://emoji?id=... links BEFORE they leave the client. ExteraGram users can tap the emoji and see the sticker preview even without a Premium subscription.\n\nWorks in: regular messages, edits, media captions, inline bot messages, albums.\n\nCommands:\n.exteraemoji — toggle replacement on/off",
-        "toggled_on": "✅ <b>ExteraEmoji is now ON</b>\n\nPremium emojis will be converted to clickable links for ExteraGram users.",
-        "toggled_off": "❌ <b>ExteraEmoji is now OFF</b>\n\nPremium emojis will be sent as-is (visible only to Premium users).",
+        "cfg_ignored_doc": "Chat IDs where replacement is skipped (Saved Messages auto-ignored)",
+        "_cls_doc": "Сделано для пользователей ExteraGram без Telegram Premium.\n\nКак работает: Заменяет ВСЕ исходящие премиум-эмоджи на ссылки tg://emoji?id=... ДО того, как они покинут Userbot'а. Пользователи ExteraGram могут видеть все премиум эмодзи которые будут в Heroku даже без подписки Premium, а также поддерживает модули.\n\nMade for ExteraGram users without Telegram Premium.\n\nHow it works: Replaces ALL outgoing premium emoji with links tg://emoji?id=... BEFORE they leave Userbot. ExteraGram users can see all the premium emoji that will be in Heroku even without a Premium subscription, and also supports modules.",
+        "toggled_on": "✅ <b>ExteraEmoji ВКЛЮЧЕН</b>\n\n<tg-emoji emoji-id=5463001519211161219>❤</tg-emoji><tg-emoji emoji-id=5463227726548707612>❤</tg-emoji><tg-emoji emoji-id=5463115636492217326>❤</tg-emoji><tg-emoji emoji-id=5463078158607591121>❤</tg-emoji> ← проверка",
+        "toggled_off": "❌ <b>ExteraEmoji ВЫКЛЮЧЕН</b>\n\n<tg-emoji emoji-id=5463001519211161219>❤</tg-emoji><tg-emoji emoji-id=5463227726548707612>❤</tg-emoji><tg-emoji emoji-id=5463115636492217326>❤</tg-emoji><tg-emoji emoji-id=5463078158607591121>❤</tg-emoji> ← проверка",
     }
 
     strings_ru = {
         "name": "ExteraEmoji",
         "cfg_enabled": "Включить замену",
-        "cfg_enabled_doc": "Включить/выключить глобальную замену премиум-эмодзи на ссылки",
-        "cfg_template": "Шаблон ссылки",
-        "cfg_template_doc": "Шаблон URL ({doc_id} = ID документа эмодзи). По умолчанию: tg://emoji?id={doc_id}",
+        "cfg_enabled_doc": "Включить/выключить замену премиум-эмодзи на ссылки",
         "cfg_ignored": "Игнорируемые чаты",
-        "cfg_ignored_doc": "ID чатов (через запятую), где замена не производится",
-        "_cls_doc": "Конвертирует исходящие премиум-эмодзи в кликабельные ссылки tg://emoji — создан для пользователей ExteraGram без Telegram Premium.\n\nЗаменяет ВСЕ исходящие премиум-эмодзи на tg://emoji?id=... ссылки ДО отправки. Пользователи ExteraGram смогут нажать на эмодзи и увидеть превью стикера, даже без Premium-подписки.\n\nРаботает в: обычных сообщениях, редактировании, подписях к медиа, инлайн-сообщениях бота, альбомах.\n\nКоманды:\n.exteraemoji — вкл/выкл замену",
-        "toggled_on": "✅ <b>ExteraEmoji ВКЛЮЧЕН</b>\n\nПремиум-эмодзи будут заменены на кликабельные ссылки для пользователей ExteraGram.",
-        "toggled_off": "❌ <b>ExteraEmoji ВЫКЛЮЧЕН</b>\n\nПремиум-эмодзи отправлены как есть (видны только Premium-пользователям).",
+        "cfg_ignored_doc": "ID чатов где замена не производится (Избранное авто-игнорируется)",
+        "_cls_doc": "Сделано для пользователей ExteraGram без Telegram Premium.\n\nКак работает: Заменяет ВСЕ исходящие премиум-эмоджи на ссылки tg://emoji?id=... ДО того, как они покинут Userbot'а. Пользователи ExteraGram могут видеть все премиум эмодзи которые будут в Heroku даже без подписки Premium, а также поддерживает модули.\n\nMade for ExteraGram users without Telegram Premium.\n\nHow it works: Replaces ALL outgoing premium emoji with links tg://emoji?id=... BEFORE they leave Userbot. ExteraGram users can see all the premium emoji that will be in Heroku even without a Premium subscription, and also supports modules.",
+        "toggled_on": "✅ <b>ExteraEmoji ВКЛЮЧЕН</b>\n\n<tg-emoji emoji-id=5463001519211161219>❤</tg-emoji><tg-emoji emoji-id=5463227726548707612>❤</tg-emoji><tg-emoji emoji-id=5463115636492217326>❤</tg-emoji><tg-emoji emoji-id=5463078158607591121>❤</tg-emoji> ← проверка",
+        "toggled_off": "❌ <b>ExteraEmoji ВЫКЛЮЧЕН</b>\n\n<tg-emoji emoji-id=5463001519211161219>❤</tg-emoji><tg-emoji emoji-id=5463227726548707612>❤</tg-emoji><tg-emoji emoji-id=5463115636492217326>❤</tg-emoji><tg-emoji emoji-id=5463078158607591121>❤</tg-emoji> ← проверка",
     }
 
     def __init__(self):
@@ -92,12 +87,6 @@ class ExteraEmojiMod(loader.Module):
                 True,
                 lambda: self.strings("cfg_enabled_doc"),
                 validator=loader.validators.Boolean(),
-            ),
-            loader.ConfigValue(
-                "link_template",
-                "tg://emoji?id={doc_id}",
-                lambda: self.strings("cfg_template_doc"),
-                validator=loader.validators.String(min_len=1),
             ),
             loader.ConfigValue(
                 "ignore_chats",
@@ -110,6 +99,7 @@ class ExteraEmojiMod(loader.Module):
     async def client_ready(self, client, db):
         self._client = client
         self._db = db
+        self._tg_id = getattr(self._client, "tg_id", None) or getattr(self, "_tg_id", 0)
         self._processed = set()
         self._hooked_mtproto = False
         self._hooked_bot = False
@@ -132,32 +122,32 @@ class ExteraEmojiMod(loader.Module):
         else:
             await utils.answer(message, self.strings("toggled_on"))
 
-    def _build_url(self, document_id: int) -> str:
-        return self.config["link_template"].format(doc_id=document_id)
+    @staticmethod
+    def _build_url(document_id: int) -> str:
+        return f"tg://emoji?id={document_id}"
 
     def _replace_html(self, text: str) -> str:
         if not isinstance(text, str) or not text:
             return text
 
-        template = self.config["link_template"]
-
         text = _EMOJI_TAG_RE.sub(
-            lambda m: '<a href="{}">{}</a>'.format(
-                template.format(doc_id=m.group(1)),
-                m.group(2),
-            ),
+            lambda m: '<a href="tg://emoji?id={}">{}</a>'.format(m.group(1), m.group(2)),
             text,
         )
 
         text = _TG_EMOJI_TAG_RE.sub(
-            lambda m: '<a href="{}">{}</a>'.format(
-                template.format(doc_id=m.group(1)),
-                m.group(2),
-            ),
+            lambda m: '<a href="tg://emoji?id={}">{}</a>'.format(m.group(1), m.group(2)),
             text,
         )
 
         return text
+
+    def _is_ignored_chat(self, chat_id: int) -> bool:
+        if chat_id == self._tg_id:
+            return True
+        if chat_id in self.config["ignore_chats"]:
+            return True
+        return False
 
     def _convert_entities(self, entities: list) -> list:
         if not entities:
@@ -183,6 +173,9 @@ class ExteraEmojiMod(loader.Module):
 
     def _process_tl_request(self, request):
         if not self.config["enabled"]:
+            return request
+
+        if isinstance(getattr(request, "peer", None), InputPeerSelf):
             return request
 
         name = type(request).__name__
@@ -255,6 +248,9 @@ class ExteraEmojiMod(loader.Module):
         def _process_text_args(args, kwargs):
             new_args = list(args)
             new_kwargs = dict(kwargs)
+            chat_id = new_args[0] if new_args else new_kwargs.get("chat_id")
+            if chat_id == module._tg_id:
+                return new_args, new_kwargs
             for i, arg in enumerate(new_args):
                 if isinstance(arg, str):
                     new_args[i] = module._replace_html(arg)
@@ -349,8 +345,8 @@ class ExteraEmojiMod(loader.Module):
                 start = entity.offset
                 end = entity.offset + entity.length
                 emoji_text = utils.escape_html(result[start:end])
-                link_html = '<a href="{}">{}</a>'.format(
-                    self._build_url(entity.document_id),
+                link_html = '<a href="tg://emoji?id={}">{}</a>'.format(
+                    entity.document_id,
                     emoji_text,
                 )
                 result = result[:start] + link_html + result[end:]
@@ -396,7 +392,7 @@ class ExteraEmojiMod(loader.Module):
             return
         if message.sender_id in (777000, 489000):
             return
-        if message.chat_id in self.config["ignore_chats"]:
+        if self._is_ignored_chat(message.chat_id):
             return
         await self._fallback_edit_message(message)
 
@@ -415,7 +411,7 @@ class ExteraEmojiMod(loader.Module):
             return
         if message.sender_id in (777000, 489000):
             return
-        if message.chat_id in self.config["ignore_chats"]:
+        if self._is_ignored_chat(message.chat_id):
             return
         await self._fallback_edit_message(message)
 
