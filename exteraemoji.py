@@ -31,6 +31,8 @@ _TG_EMOJI_TAG_RE = re.compile(
 _CODE_BLOCK_RE = re.compile(r"(<pre\b[^>]*>.*?</pre>)", re.DOTALL)
 _INLINE_CODE_RE = re.compile(r"(<code\b[^>]*>.*?</code>)", re.DOTALL)
 
+_TOKEN_PREFIX = "EXEMOJI_BLK_"
+
 _BOT_METHODS = (
     "send_message",
     "edit_message_text",
@@ -133,7 +135,7 @@ class ExteraEmojiMod(loader.Module):
 
         def _save(m):
             blocks.append(m.group(0))
-            return f"\x00EXE{len(blocks) - 1}\x00"
+            return f"{_TOKEN_PREFIX}{len(blocks) - 1}_END"
 
         text = _CODE_BLOCK_RE.sub(_save, text)
         text = _INLINE_CODE_RE.sub(_save, text)
@@ -148,7 +150,7 @@ class ExteraEmojiMod(loader.Module):
         )
 
         for i, block in enumerate(blocks):
-            text = text.replace(f"\x00EXE{i}\x00", block)
+            text = text.replace(f"{_TOKEN_PREFIX}{i}_END", block)
 
         return text
 
