@@ -241,10 +241,6 @@ class ExteraEmojiMod(loader.Module):
                 if converted is not entities:
                     request.entities = converted
 
-            msg = getattr(request, "message", None)
-            if isinstance(msg, str) and ("<emoji" in msg or "<tg-emoji" in msg):
-                request.message = self._replace_html(msg)
-
         elif name == "SendMultiMediaRequest":
             for media in getattr(request, "multi_media", None) or []:
                 ent = getattr(media, "entities", None)
@@ -252,10 +248,6 @@ class ExteraEmojiMod(loader.Module):
                     converted = self._convert_entities(ent)
                     if converted is not ent:
                         media.entities = converted
-
-                msg = getattr(media, "message", None)
-                if isinstance(msg, str) and ("<emoji" in msg or "<tg-emoji" in msg):
-                    media.message = self._replace_html(msg)
 
         return request
 
