@@ -103,7 +103,6 @@ class ExteraEmojiMod(loader.Module):
         self._processed = set()
         self._hooked_mtproto = False
         self._hooked_bot = False
-        self._bot_real = None
         self._bot_orig = {}
 
         await self._try_hook_mtproto()
@@ -281,19 +280,29 @@ class ExteraEmojiMod(loader.Module):
     async def _try_hook_inline_bot(self):
         module = self
 
-        bot = self._find_bot()
+        bot = None
+        try:
+            for attr in ("bot", "_bot"):
+                bot = getattr(self.inline, attr, None)
+                if bot is not None:
+                    break
+        except Exception:
+            pass
+
+        if bot is None:
+            try:
+                inline = getattr(self._client, "inline", None)
+                if inline is not None:
+                    for attr in ("bot", "_bot"):
+                        bot = getattr(inline, attr, None)
+                        if bot is not None:
+                            break
+            except Exception:
+                pass
+
         if bot is None:
             logger.info("ExteraEmoji: inline bot not found, skipping aiogram hook")
             return
-
-        real_bot = self._unwrap_proxy(bot)
-        self._bot_real = real_bot
-
-        logger.info(
-            "ExteraEmoji: found bot (class=%s, unwrapped=%s)",
-            type(real_bot).__name__,
-            real_bot is not bot,
-        )
 
         def _process_text_args(args, kwargs):
             new_args = list(args)
@@ -319,68 +328,17 @@ class ExteraEmojiMod(loader.Module):
 
         try:
             for method_name in _BOT_METHODS:
-                orig = getattr(real_bot, method_name, None)
+                orig = getattr(bot, method_name, None)
                 if orig is None:
                     continue
                 self._bot_orig[method_name] = orig
-                setattr(real_bot, method_name, _make_patched(orig))
+                setattr(bot, method_name, _make_patched(orig))
 
             self._hooked_bot = True
-            logger.info("ExteraEmoji: bot instance hooks active (%d methods)", len(self._bot_orig))
+            logger.info("ExteraEmoji: aiogram bot hooks active")
         except Exception as e:
             logger.info("ExteraEmoji: bot hook blocked (%s)", e)
             self._hooked_bot = False
-
-    def _find_bot(self):
-        candidates = []
-        try:
-            candidates.append(self.inline)
-        except Exception:
-            pass
-        try:
-            candidates.append(getattr(self, "_client", None))
-        except Exception:
-            pass
-
-        for root in candidates:
-            if root is None:
-                continue
-            for attr in ("bot", "_bot", "_dispatcher", "dispatcher"):
-                obj = getattr(root, attr, None)
-                if obj is None:
-                    continue
-                if attr in ("_dispatcher", "dispatcher"):
-                    bot_candidate = getattr(obj, "bot", None) or getattr(obj, "_bot", None)
-                    if bot_candidate is not None and hasattr(bot_candidate, "send_message"):
-                        return bot_candidate
-                elif hasattr(obj, "send_message"):
-                    return obj
-
-        for root in candidates:
-            if root is None:
-                continue
-            try:
-                for attr_name in dir(root):
-                    if attr_name.startswith("_"):
-                        continue
-                    obj = getattr(root, attr_name, None)
-                    if obj is not None and hasattr(obj, "send_message") and hasattr(obj, "edit_message_text"):
-                        return obj
-            except Exception:
-                pass
-
-        return None
-
-    @staticmethod
-    def _unwrap_proxy(obj):
-        for key in ("_obj", "__obj", "_target", "__target", "_wrapped", "__wrapped__"):
-            val = getattr(obj, key, None)
-            if val is not None:
-                return val
-        for attr in dir(obj):
-            if attr.startswith("_SafeProxy__"):
-                return getattr(obj, attr)
-        return obj
 
     def _replace_via_entities(self, message: Message) -> str:
         text = message.message or ""
@@ -474,12 +432,31 @@ class ExteraEmojiMod(loader.Module):
             except Exception:
                 logger.debug("ExteraEmoji: failed to restore MTProto hook", exc_info=True)
 
-        if self._hooked_bot and self._bot_real is not None:
-            for method_name, orig in self._bot_orig.items():
+        if self._hooked_bot and self._bot_orig:
+            bot = None
+            try:
+                for attr in ("bot", "_bot"):
+                    bot = getattr(self.inline, attr, None)
+                    if bot is not None:
+                        break
+            except Exception:
+                pass
+            if bot is None:
                 try:
-                    setattr(self._bot_real, method_name, orig)
+                    inline = getattr(self._client, "inline", None)
+                    if inline is not None:
+                        for attr in ("bot", "_bot"):
+                            bot = getattr(inline, attr, None)
+                            if bot is not None:
+                                break
                 except Exception:
                     pass
+            if bot is not None:
+                for method_name, orig in self._bot_orig.items():
+                    try:
+                        setattr(bot, method_name, orig)
+                    except Exception:
+                        pass
             logger.info("ExteraEmoji: bot hooks restored")
 
         self._processed.clear()
