@@ -112,7 +112,7 @@ class ExteraEmojiMod(loader.Module):
     @loader.command(
         ru_doc="Включить/выключить замену премиум-эмодзи на ссылки",
         en_doc="Toggle premium emoji → link replacement on/off",
-        aliases=["ee"],
+        alias="ee",
     )
     async def exteraemojicmd(self, message: Message):
         """Toggle ExteraEmoji replacement on/off"""
