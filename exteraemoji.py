@@ -164,17 +164,22 @@ class ExteraEmojiMod(loader.Module):
         skip_ranges = sorted(
             (e.offset, e.offset + e.length)
             for e in entities
-            if isinstance(e, (MessageEntityPre, MessageEntityCode))
+            if type(e).__name__ in ("MessageEntityPre", "MessageEntityCode")
         )
+
+        if skip_ranges:
+            logger.debug("ExteraEmoji: skip_ranges=%s", skip_ranges)
 
         changed = False
         result = []
+        skipped = 0
 
         for entity in entities:
             if isinstance(entity, MessageEntityCustomEmoji):
                 s, e = entity.offset, entity.offset + entity.length
                 if any(sk_s <= s and e <= sk_e for sk_s, sk_e in skip_ranges):
                     result.append(entity)
+                    skipped += 1
                 else:
                     result.append(
                         MessageEntityTextUrl(
@@ -186,6 +191,9 @@ class ExteraEmojiMod(loader.Module):
                     changed = True
             else:
                 result.append(entity)
+
+        if skipped:
+            logger.debug("ExteraEmoji: skipped %d emoji inside code blocks", skipped)
 
         return result if changed else entities
 
