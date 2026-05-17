@@ -28,7 +28,8 @@ _TG_EMOJI_TAG_RE = re.compile(
     r'<tg-emoji\s+emoji-id=["\x27]?(\d+)["\x27]?[^>]*>([^<]*)</tg-emoji>'
 )
 
-_CODE_BLOCK_RE = re.compile(r"(<pre>\s*<code[^>]*>.*?</code>\s*</pre>)", re.DOTALL)
+_CODE_BLOCK_RE = re.compile(r"(<pre\b[^>]*>.*?</pre>)", re.DOTALL)
+_INLINE_CODE_RE = re.compile(r"(<code\b[^>]*>.*?</code>)", re.DOTALL)
 
 _BOT_METHODS = (
     "send_message",
@@ -130,11 +131,12 @@ class ExteraEmojiMod(loader.Module):
 
         blocks = []
 
-        def _save_block(m):
+        def _save(m):
             blocks.append(m.group(0))
             return f"\x00EXE{len(blocks) - 1}\x00"
 
-        text = _CODE_BLOCK_RE.sub(_save_block, text)
+        text = _CODE_BLOCK_RE.sub(_save, text)
+        text = _INLINE_CODE_RE.sub(_save, text)
 
         text = _EMOJI_TAG_RE.sub(
             lambda m: '<a href="tg://emoji?id={}">{}</a>'.format(m.group(1), m.group(2)),
@@ -161,6 +163,10 @@ class ExteraEmojiMod(loader.Module):
         if not entities:
             return entities
 
+        _PRE_CODE_NAMES = (
+            "MessageEntityPre", "MessageEntityCode",
+        )
+
         names_seen = set()
         skip_ranges = []
 
@@ -168,25 +174,24 @@ class ExteraEmojiMod(loader.Module):
             name = type(e).__name__
             names_seen.add(name)
 
-            is_pre = (
+            hit = (
                 hasattr(e, "language")
                 or name == "MessageEntityPre"
-                or name.startswith("MessageEntityPre")
-            )
-            is_code = (
-                name == "MessageEntityCode"
-                or name.startswith("MessageEntityCode")
+                or name == "MessageEntityCode"
+                or name.endswith("EntityPre")
+                or name.endswith("EntityCode")
             )
 
-            if is_pre or is_code:
+            if hit:
                 skip_ranges.append((e.offset, e.offset + e.length))
 
         skip_ranges.sort()
 
-        if names_seen:
-            logger.info("ExteraEmoji: entity types in request: %s", sorted(names_seen))
-        if skip_ranges:
-            logger.info("ExteraEmoji: skip_ranges (pre/code)=%s", skip_ranges)
+        logger.info(
+            "ExteraEmoji: types=%s skip=%s",
+            sorted(names_seen) if names_seen else "[]",
+            skip_ranges,
+        )
 
         changed = False
         result = []
@@ -211,7 +216,7 @@ class ExteraEmojiMod(loader.Module):
                 result.append(entity)
 
         if skipped:
-            logger.info("ExteraEmoji: skipped %d emoji inside code blocks", skipped)
+            logger.info("ExteraEmoji: skipped %d emoji", skipped)
 
         return result if changed else entities
 
