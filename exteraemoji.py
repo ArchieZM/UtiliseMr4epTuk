@@ -11,9 +11,12 @@ from herokutl.types import Message
 from herokutl.tl.types import (
     MessageEntityCustomEmoji,
     MessageEntityTextUrl,
+    MessageEntityPre,
+    MessageEntityCode,
     UpdateEditMessage,
     UpdateEditChannelMessage,
     InputPeerSelf,
+    InputPeerUser,
 )
 
 logger = logging.getLogger(__name__)
@@ -125,23 +128,27 @@ class ExteraEmojiMod(loader.Module):
         if not isinstance(text, str) or not text:
             return text
 
-        parts = _CODE_BLOCK_RE.split(text)
+        blocks = []
 
-        for i, part in enumerate(parts):
-            if part.startswith("<pre><code"):
-                continue
+        def _save_block(m):
+            blocks.append(m.group(0))
+            return f"\x00EXE{len(blocks) - 1}\x00"
 
-            part = _EMOJI_TAG_RE.sub(
-                lambda m: '<a href="tg://emoji?id={}">{}</a>'.format(m.group(1), m.group(2)),
-                part,
-            )
-            part = _TG_EMOJI_TAG_RE.sub(
-                lambda m: '<a href="tg://emoji?id={}">{}</a>'.format(m.group(1), m.group(2)),
-                part,
-            )
-            parts[i] = part
+        text = _CODE_BLOCK_RE.sub(_save_block, text)
 
-        return "".join(parts)
+        text = _EMOJI_TAG_RE.sub(
+            lambda m: '<a href="tg://emoji?id={}">{}</a>'.format(m.group(1), m.group(2)),
+            text,
+        )
+        text = _TG_EMOJI_TAG_RE.sub(
+            lambda m: '<a href="tg://emoji?id={}">{}</a>'.format(m.group(1), m.group(2)),
+            text,
+        )
+
+        for i, block in enumerate(blocks):
+            text = text.replace(f"\x00EXE{i}\x00", block)
+
+        return text
 
     def _is_ignored_chat(self, chat_id: int) -> bool:
         if chat_id == self._tg_id:
@@ -154,19 +161,29 @@ class ExteraEmojiMod(loader.Module):
         if not entities:
             return entities
 
+        skip_ranges = sorted(
+            (e.offset, e.offset + e.length)
+            for e in entities
+            if isinstance(e, (MessageEntityPre, MessageEntityCode))
+        )
+
         changed = False
         result = []
 
         for entity in entities:
             if isinstance(entity, MessageEntityCustomEmoji):
-                result.append(
-                    MessageEntityTextUrl(
-                        offset=entity.offset,
-                        length=entity.length,
-                        url=self._build_url(entity.document_id),
+                s, e = entity.offset, entity.offset + entity.length
+                if any(sk_s <= s and e <= sk_e for sk_s, sk_e in skip_ranges):
+                    result.append(entity)
+                else:
+                    result.append(
+                        MessageEntityTextUrl(
+                            offset=entity.offset,
+                            length=entity.length,
+                            url=self._build_url(entity.document_id),
+                        )
                     )
-                )
-                changed = True
+                    changed = True
             else:
                 result.append(entity)
 
@@ -176,7 +193,10 @@ class ExteraEmojiMod(loader.Module):
         if not self.config["enabled"]:
             return request
 
-        if isinstance(getattr(request, "peer", None), InputPeerSelf):
+        peer = getattr(request, "peer", None)
+        if isinstance(peer, InputPeerSelf):
+            return request
+        if isinstance(peer, InputPeerUser) and peer.user_id == self._tg_id:
             return request
 
         name = type(request).__name__
