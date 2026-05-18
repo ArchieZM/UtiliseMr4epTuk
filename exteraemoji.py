@@ -153,6 +153,22 @@ class ExteraEmojiMod(loader.Module):
 
         return text
 
+    @staticmethod
+    def _replace_html_bot(text: str) -> str:
+        if not isinstance(text, str) or not text:
+            return text
+
+        text = _EMOJI_TAG_RE.sub(
+            lambda m: '<a href="tg://emoji?id={}">{}</a>'.format(m.group(1), m.group(2)),
+            text,
+        )
+        text = _TG_EMOJI_TAG_RE.sub(
+            lambda m: '<a href="tg://emoji?id={}">{}</a>'.format(m.group(1), m.group(2)),
+            text,
+        )
+
+        return text
+
     def _is_ignored_chat(self, chat_id: int) -> bool:
         if chat_id == self._tg_id:
             return True
@@ -190,7 +206,7 @@ class ExteraEmojiMod(loader.Module):
             skip_ranges,
         )
 
-        MAX_LINKS = 49
+        MAX_LINKS = 48
         changed = False
         result = []
         skipped = 0
@@ -307,15 +323,12 @@ class ExteraEmojiMod(loader.Module):
         def _process_text_args(args, kwargs):
             new_args = list(args)
             new_kwargs = dict(kwargs)
-            chat_id = new_args[0] if new_args else new_kwargs.get("chat_id")
-            if chat_id == module._tg_id:
-                return new_args, new_kwargs
             for i, arg in enumerate(new_args):
                 if isinstance(arg, str):
-                    new_args[i] = module._replace_html(arg)
+                    new_args[i] = ExteraEmojiMod._replace_html_bot(arg)
             for key in _TEXT_KEYS:
                 if key in new_kwargs and isinstance(new_kwargs[key], str):
-                    new_kwargs[key] = module._replace_html(new_kwargs[key])
+                    new_kwargs[key] = ExteraEmojiMod._replace_html_bot(new_kwargs[key])
             for key in ("media",):
                 val = new_kwargs.get(key)
                 if val is None:
@@ -323,7 +336,7 @@ class ExteraEmojiMod(loader.Module):
                 items = val if isinstance(val, list) else [val]
                 for item in items:
                     if hasattr(item, "caption") and isinstance(item.caption, str):
-                        item.caption = module._replace_html(item.caption)
+                        item.caption = ExteraEmojiMod._replace_html_bot(item.caption)
             return new_args, new_kwargs
 
         def _make_patched(orig):
